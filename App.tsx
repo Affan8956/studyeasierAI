@@ -22,14 +22,12 @@ const App: React.FC = () => {
   const [isAppLoading, setIsAppLoading] = useState(true);
 
   useEffect(() => {
-    // SECURITY: Force clear loading after 4 seconds regardless of what happens
-    // This prevents the "Infinite Loading" bug if Supabase/DB hangs.
+    // SECURITY: Limit initialization time. The app should show login or dashboard within 5s.
     const hardTimeout = setTimeout(() => {
       if (isAppLoading) {
-        console.warn("Initialization taking too long. Force-starting app.");
         setIsAppLoading(false);
       }
-    }, 4000);
+    }, 5000);
 
     const init = async () => {
       try {

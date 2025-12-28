@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -7,6 +8,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- KaTeX for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
       body {
@@ -35,6 +42,22 @@
       .animate-fadeIn {
         animation: fadeIn 0.4s ease-out forwards;
       }
+
+      /* KaTeX Custom Overrides */
+      .katex-display {
+        margin: 1.5em 0;
+        padding: 1em;
+        background: rgba(16, 185, 129, 0.03);
+        border-radius: 1rem;
+        border: 1px solid rgba(16, 185, 129, 0.1);
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      .katex {
+        font-size: 1.1em;
+        color: #10b981; /* Emerald-500 for math */
+      }
+
       @media print {
         @page { margin: 0; size: auto; }
         body, html {

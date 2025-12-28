@@ -32,8 +32,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
   };
 
   const validateAndProcess = (file: File) => {
-    const validTypes = ['application/pdf', 'audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/m4a'];
-    if (validTypes.includes(file.type)) {
+    const validTypes = [
+      'application/pdf', 
+      'audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/m4a'
+    ];
+    // Strictly filter out video types
+    if (validTypes.includes(file.type) || (file.type.startsWith('audio/') && !file.type.startsWith('video/'))) {
       onUpload(file);
     } else {
       alert("Please upload a valid PDF or Audio file.");
@@ -93,13 +97,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
             
             <div className="text-center">
               <div className="mb-6 inline-flex items-center justify-center w-16 h-16 bg-indigo-600/10 text-indigo-500 rounded-2xl shadow-xl">
-                <i className="fas fa-cloud-upload-alt text-2xl"></i>
+                <i className="fas fa-file-audio text-2xl"></i>
               </div>
               <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">
                 Upload Content
               </h3>
               <p className="text-slate-500 text-sm max-w-sm px-4 leading-relaxed font-medium">
-                Drag and drop your PDF or audio recording for intelligent processing.
+                Drop a PDF or <span className="text-indigo-400 font-bold">Audio Recording</span> for advanced AI analysis.
               </p>
               <div className="mt-6 flex gap-6 justify-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
                 <span className="flex items-center gap-2"><i className="fas fa-file-pdf text-indigo-500"></i> PDF</span>
@@ -113,10 +117,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
               <i className="fab fa-youtube text-2xl"></i>
             </div>
             <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">
-              YouTube Link
+              YouTube Analysis
             </h3>
             <p className="text-slate-500 text-sm mb-8 text-center max-w-sm leading-relaxed font-medium">
-              Enter a YouTube URL. Our AI will extract the summary first, then build your quiz and slides for total consistency.
+              Provide a YouTube URL. Our AI will research the topic, extract key points from the transcript, and generate a consistent English study package.
             </p>
             <form onSubmit={handleUrlSubmit} className="w-full relative group">
               <input 

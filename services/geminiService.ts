@@ -5,12 +5,14 @@ import { Message, AIMode } from "../types";
 const PRO_MODEL = "gemini-3-pro-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
+const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math (equations on their own line).";
+
 const SYSTEM_PROMPTS: Record<AIMode, string> = {
-  study: "You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English unless specifically asked otherwise. Provide deep, structured reasoning.",
+  study: `You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English. Provide deep, structured reasoning. ${MATH_INSTRUCTION}`,
   coding: "You are a senior software engineer. Provide high-quality, documented code blocks. Be concise. Always respond in English.",
   writing: "You are a creative editor. Help users draft prose. Focus on tone, style, and structure. Always respond in English.",
-  tutor: "You are a Socratic teacher. Guide users with questions instead of giving direct answers. Always respond in English.",
-  research: "You are a technical analyst. Provide dense, data-driven explanations with structured evidence. Always respond in English."
+  tutor: `You are a Socratic teacher. Guide users with questions instead of giving direct answers. Always respond in English. ${MATH_INSTRUCTION}`,
+  research: `You are a technical analyst. Provide dense, data-driven explanations with structured evidence. Always respond in English. ${MATH_INSTRUCTION}`
 };
 
 // --- CHAT STREAMING ---
@@ -54,15 +56,17 @@ export const streamChatResponse = async (
 // --- SLIDE IMAGE GENERATION ---
 export const generateSlideImage = async (title: string, context: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Generate a high-quality, professional, and educational 3D illustration or conceptual photograph for a lecture slide. 
-  Topic: ${title}
+  
+  const visualPrompt = `A high-resolution, professional, and educational 3D render or cinematic photograph for a lecture slide.
+  Subject: ${title}
   Content Context: ${context}
-  Style: Clean, modern, academic, high-resolution. No text in the image. Vibrant but professional colors.`;
+  Visual Style: Modern, clean, academic aesthetic, 4K, realistic textures, volumetric lighting. 
+  Requirement: NO TEXT in the image. Scientific and instructional vibes. Highly relatable to the subject matter.`;
 
   try {
     const response = await ai.models.generateContent({
       model: IMAGE_MODEL,
-      contents: { parts: [{ text: prompt }] },
+      contents: { parts: [{ text: visualPrompt }] },
       config: {
         imageConfig: {
           aspectRatio: "16:9"
@@ -88,23 +92,23 @@ export const processUnifiedLabContent = async (
 ): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const instruction = `You are a world-class educational content creator and expert translator. 
+  const instruction = `You are a world-class educational content creator and expert multilingual analyst. 
 
   CORE MISSION: 
-  Perform a deep analysis of the provided material to generate an "Elite Mastery Learning Package".
+  Perform an exhaustive analysis of the provided material to generate an "Elite Mastery Learning Package".
 
-  STRICT CONTENT DEPTH:
-  - TITLE: Concise and academic.
-  - MASTER SUMMARY: Exhaustive English markdown summary. Detailed H1, H2, H3 structure.
-  - QUIZ: 10 challenging Multiple Choice Questions with deep explanations.
+  STRICT CONTENT DEPTH REQUIREMENTS:
+  - TITLE: Concise, academic, and professional.
+  - MASTER SUMMARY: Exhaustive English markdown summary (1000+ words). Use H1, H2, H3, and Bold text for key terms.
+  - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
+  - QUIZ: 10 challenging Multiple Choice Questions with detailed explanations for every answer.
   - SLIDES (12 Slides):
-    * Each slide must have 5-8 detailed, high-value bullet points.
-    * Speaker notes must be a comprehensive script of at least 150 words per slide.
-    * imageKeyword must be a highly descriptive scene prompt for an AI image generator.
+    * Bullet points: Each slide MUST have at least 8 detailed, high-value bullet points.
+    * Speaker notes: Each slide MUST have a comprehensive script of at least 200 words.
+    * imageKeyword: A highly descriptive, context-rich prompt for an image generator.
 
   MULTILINGUAL PROTOCOL:
-  - Translate all concepts accurately into English if the source is non-English.
-  - THE ENTIRE OUTPUT MUST BE IN ENGLISH.
+  - Translate all content into English. The entire output must be English.
 
   OUTPUT MUST BE A SINGLE VALID JSON OBJECT matching the responseSchema.`;
 
@@ -151,7 +155,7 @@ export const processUnifiedLabContent = async (
   if (source.file) {
     parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
   } else if (source.url) {
-    parts.push({ text: `Analyze and translate content from: ${source.url}` });
+    parts.push({ text: `Analyze this source and generate the full package: ${source.url}` });
   }
   parts.push({ text: instruction });
 
@@ -172,6 +176,6 @@ export const processUnifiedLabContent = async (
     const text = response.text || "{}";
     return JSON.parse(text);
   } catch (e) {
-    throw new Error("AI synthesis pass failed. The content might be too complex or the transcript was unavailable.");
+    throw new Error("AI synthesis pass failed. Content may be too large or complex.");
   }
 };

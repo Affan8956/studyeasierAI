@@ -15,49 +15,58 @@ const mapSupabaseUserToAppUser = (supabaseUser: any, profile: any): User => {
 };
 
 /**
- * Wraps a promise in a timeout
+ * Robust wrapper for Supabase calls with timeout protection
  */
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, ms: number = 10000): Promise<T> => {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('CONNECTION_TIMEOUT')), ms))
   ]);
 };
 
 export const login = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  try {
+    // Added 'as any' cast to bypass inference issue where result is seen as {}
+    const { data, error } = await (withTimeout(supabase.auth.signInWithPassword({
+      email,
+      password,
+    })) as any);
 
-  if (error) {
-    if (error.message.toLowerCase().includes('email not confirmed')) {
-      throw new Error('EMAIL_NOT_CONFIRMED');
+    if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        throw new Error('EMAIL_NOT_CONFIRMED');
+      }
+      throw error;
     }
-    throw error;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    return { 
+      user: mapSupabaseUserToAppUser(data.user, profile), 
+      token: data.session?.access_token 
+    };
+  } catch (err: any) {
+    if (err.message === 'CONNECTION_TIMEOUT') {
+      throw new Error('Server connection timed out. Please check your internet or Supabase status.');
+    }
+    throw err;
   }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', data.user.id)
-    .maybeSingle();
-
-  return { 
-    user: mapSupabaseUserToAppUser(data.user, profile), 
-    token: data.session?.access_token 
-  };
 };
 
 export const signup = async (name: string, email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({
+  // Added 'as any' cast to bypass inference issue where result is seen as {}
+  const { data, error } = await (withTimeout(supabase.auth.signUp({
     email,
     password,
     options: {
       data: { full_name: name },
       emailRedirectTo: window.location.origin
     }
-  });
+  })) as any);
 
   if (error) {
     if (error.message.toLowerCase().includes('user already registered')) {
@@ -85,18 +94,10 @@ export const logout = async () => {
 
 export const getCurrentSession = async () => {
   try {
-    // Add a hard timeout of 2.5 seconds for session checking
-    // to prevent hanging on misconfigured cloud keys.
-    // Fixed: Explicitly cast result to 'any' to avoid "Property 'data' does not exist on type '{}'"
-    // This occurs because TypeScript inference can fail when mixing complex Supabase response types with Promise.race
-    const result = await withTimeout(
-      supabase.auth.getSession(),
-      2500
-    ) as any;
+    // Added 'as any' cast to bypass inference issue where result is seen as {}
+    const { data: { session }, error: sessionError } = await (withTimeout(supabase.auth.getSession(), 5000) as any);
+    if (sessionError || !session) return null;
     
-    if (!result || result.error || !result.data?.session) return null;
-    
-    const { session } = result.data;
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
@@ -108,7 +109,6 @@ export const getCurrentSession = async () => {
       token: session.access_token 
     };
   } catch (e) {
-    console.warn("Auth initialization timed out or failed. Defaulting to logged-out state.");
     return null;
   }
 };

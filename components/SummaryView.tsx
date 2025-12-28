@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface SummaryViewProps {
   summary: string;
@@ -9,8 +9,23 @@ interface SummaryViewProps {
 const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
   const summaryRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (summaryRef.current && (window as any).renderMathInElement) {
+      (window as any).renderMathInElement(summaryRef.current, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true }
+        ],
+        throwOnError: false
+      });
+    }
+  }, [summary]);
+
   const formatText = (text: string) => {
     // Handle Bold (**text**) and Italics (*text*)
+    // We don't process $ here because KaTeX auto-render handles it
     const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
@@ -36,24 +51,18 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
   const handleGeneratePDF = () => {
     if (!summaryRef.current) return;
     
-    // Create a container specifically for PDF generation to avoid UI artifacts
     const element = summaryRef.current.cloneNode(true) as HTMLElement;
-    
-    // Remove action buttons from the PDF clone
     const actionButtons = element.querySelector('.no-print-zone');
     if (actionButtons) actionButtons.remove();
 
-    // Style the clone for the PDF output
-    // User specifically asked for black background
     element.style.width = '800px';
     element.style.padding = '50px';
-    element.style.backgroundColor = '#000000'; // Pure Black as requested
+    element.style.backgroundColor = '#000000';
     element.style.color = '#f1f5f9';
     element.style.margin = '0';
-    element.style.borderRadius = '0'; // Flat for PDF
+    element.style.borderRadius = '0';
     element.style.border = 'none';
     
-    // Ensure all internal elements have correct colors for black background
     const textElements = element.querySelectorAll('p, li, span, h1, h2, h3, h4');
     textElements.forEach((el: any) => {
       if (!el.classList.contains('text-emerald-400') && !el.classList.contains('text-indigo-400')) {
@@ -76,7 +85,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Use a temporary wrapper to force the background to cover the whole page if needed
     const wrapper = document.createElement('div');
     wrapper.style.backgroundColor = '#000000';
     wrapper.appendChild(element);
@@ -113,7 +121,7 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
         );
       }
 
-      // Images (Markdown style: ![alt](url))
+      // Images
       const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
       if (imgMatch) {
         return (
@@ -129,7 +137,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
         );
       }
 
-      // Horizontal Rule
       if (trimmed === '---' || trimmed === '***') {
         return <hr key={i} className="my-10 border-slate-800" />;
       }
@@ -145,7 +152,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
       ref={summaryRef}
       className="bg-[#0d0d0d] rounded-3xl shadow-2xl border border-slate-800 p-8 md:p-14 max-w-4xl mx-auto my-8 animate-fadeIn summary-print-container relative overflow-hidden"
     >
-      {/* PDF Branding Header */}
       <div className="flex items-center gap-4 mb-12 pb-8 border-b border-slate-800 relative z-10">
         <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/20 shrink-0">
           <i className="fas fa-graduation-cap text-xl"></i>
@@ -187,7 +193,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
         </p>
       </div>
 
-      {/* Background aesthetics */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none"></div>
     </div>

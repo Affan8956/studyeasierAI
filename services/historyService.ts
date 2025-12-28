@@ -4,16 +4,31 @@ import { supabase } from './supabaseClient';
 import { db } from './db';
 
 /**
- * Dual-Storage Strategy:
- * 1. Always save to local IndexedDB (Instant, Offline-ready)
- * 2. Attempt to sync to Supabase (Cloud backup/Sync)
+ * Cloud Sync State Tracker
+ * We use this to prevent repeated 404/403 errors if the tables don't exist yet.
  */
+let cloudSyncActive = {
+  chats: true,
+  assets: true
+};
+
+const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
+  // If we get a 404 (Not Found) or 403 (Forbidden/RLS) it usually means tables are missing
+  if (error.code === 'PGRST204' || error.code === 'PGRST205' || error.status === 404 || error.message?.includes('not found')) {
+    if (cloudSyncActive[feature]) {
+      console.warn(`Supabase ${feature} table not found. Switching to highly-available Local Mode.`);
+      cloudSyncActive[feature] = false;
+    }
+  }
+};
 
 export const saveChat = async (userId: string, chat: ChatSession) => {
-  // 1. Local Persistence (Primary)
+  // 1. Local storage is the source of truth for immediate responsiveness
   await db.saveChat(chat);
 
-  // 2. Cloud Sync (Secondary)
+  // 2. Cloud Sync (Async)
+  if (!cloudSyncActive.chats) return;
+
   try {
     const { error } = await supabase
       .from('chats')
@@ -24,17 +39,16 @@ export const saveChat = async (userId: string, chat: ChatSession) => {
         mode: chat.mode,
         updated_at: new Date().toISOString()
       });
-    if (error) throw error;
-  } catch (e) {
-    console.warn("Supabase Sync Failed: Operating in Local-Only mode for this session.");
-  }
+    if (error) handleSupabaseError(error, 'chats');
+  } catch (e) {}
 };
 
 export const getHistory = async (userId: string): Promise<ChatSession[]> => {
-  // 1. Get Local History (Instant)
+  // Always get local first
   const localHistory = await db.getChats(userId);
+  
+  if (!cloudSyncActive.chats) return localHistory;
 
-  // 2. Try to fetch Cloud updates
   try {
     const { data, error } = await supabase
       .from('chats')
@@ -42,9 +56,13 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
 
-    if (!error && data) {
-      // Logic to merge could go here, for now return merged or cloud as source of truth if newer
-      return (data || []).map((chat: any) => ({
+    if (error) {
+      handleSupabaseError(error, 'chats');
+      return localHistory;
+    }
+
+    if (data && data.length > 0) {
+      const synced = data.map((chat: any) => ({
         id: chat.id,
         userId: chat.user_id,
         title: chat.title,
@@ -58,17 +76,19 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
         createdAt: new Date(chat.created_at).getTime(),
         updatedAt: new Date(chat.updated_at).getTime()
       }));
+
+      // In a real app, we would merge synced and localHistory here.
+      // For now, if we have cloud data, we use it to ensure cross-device consistency.
+      return synced;
     }
-  } catch (e) {
-    console.warn("Cloud History unavailable, using local database.");
-  }
+  } catch (e) {}
 
   return localHistory;
 };
 
 export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatSession> => {
   const newChat: ChatSession = {
-    id: Math.random().toString(36).substr(2, 9),
+    id: 'chat_' + Math.random().toString(36).substr(2, 9),
     userId,
     title: 'New Discussion',
     mode,
@@ -80,70 +100,58 @@ export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatS
   // Save locally first
   await db.saveChat(newChat);
 
-  // Try cloud creation
-  try {
-    const { data, error } = await supabase
-      .from('chats')
-      .insert([{ id: newChat.id, user_id: userId, mode, title: 'New Discussion' }])
-      .select()
-      .single();
-    
-    if (!error && data) {
-      return {
-        ...newChat,
-        id: data.id,
-        createdAt: new Date(data.created_at).getTime()
-      };
-    }
-  } catch (err) {
-    console.warn("Database sync failed, chat is local-only.");
+  if (cloudSyncActive.chats) {
+    try {
+      const { error } = await supabase
+        .from('chats')
+        .insert([{ id: newChat.id, user_id: userId, mode, title: 'New Discussion' }]);
+      
+      if (error) handleSupabaseError(error, 'chats');
+    } catch (err) {}
   }
 
   return newChat;
 };
 
 export const deleteChat = async (userId: string, id: string) => {
-  // Delete from both
   await db.deleteChat(id);
-  try {
-    await supabase.from('chats').delete().eq('id', id);
-  } catch (e) {
-    console.error("Cloud delete failed");
+  if (cloudSyncActive.chats) {
+    try {
+      await supabase.from('chats').delete().eq('id', id);
+    } catch (e) {}
   }
 };
 
 export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'timestamp' | 'userId'>) => {
   const fullAsset: LabAsset = {
     ...asset,
-    id: Math.random().toString(36).substr(2, 9),
+    id: 'asset_' + Math.random().toString(36).substr(2, 9),
     userId,
     timestamp: Date.now()
   };
 
-  // 1. Save to Local DB
   await db.saveAsset(fullAsset);
 
-  // 2. Save to Cloud
-  try {
-    const { error } = await supabase
-      .from('assets')
-      .insert([{
-        id: fullAsset.id,
-        user_id: userId,
-        title: asset.title,
-        type: asset.type,
-        content: asset.content,
-        source_name: asset.sourceName
-      }]);
-    if (error) throw error;
-  } catch (e) {
-    console.warn("Failed to sync asset to Cloud. Saved locally.");
+  if (cloudSyncActive.assets) {
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .insert([{
+          id: fullAsset.id,
+          user_id: userId,
+          title: asset.title,
+          type: asset.type,
+          content: asset.content,
+          source_name: asset.sourceName
+        }]);
+      if (error) handleSupabaseError(error, 'assets');
+    } catch (e) {}
   }
 };
 
 export const getAssets = async (userId: string): Promise<LabAsset[]> => {
-  // Load local first
   const localAssets = await db.getAssets(userId);
+  if (!cloudSyncActive.assets) return localAssets;
 
   try {
     const { data, error } = await supabase
@@ -152,8 +160,13 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      return (data || []).map((asset: any) => ({
+    if (error) {
+      handleSupabaseError(error, 'assets');
+      return localAssets;
+    }
+
+    if (data && data.length > 0) {
+      return data.map((asset: any) => ({
         id: asset.id,
         userId: asset.user_id,
         title: asset.title,
@@ -163,27 +176,25 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
         timestamp: new Date(asset.created_at).getTime()
       }));
     }
-  } catch (e) {
-    console.warn("Cloud assets unavailable, using local vault.");
-  }
+  } catch (e) {}
 
   return localAssets;
 };
 
 export const deleteAsset = async (userId: string, id: string) => {
   await db.deleteAsset(id);
-  try {
-    await supabase.from('assets').delete().eq('id', id);
-  } catch (e) {
-    console.error("Cloud asset delete failed");
+  if (cloudSyncActive.assets) {
+    try {
+      await supabase.from('assets').delete().eq('id', id);
+    } catch (e) {}
   }
 };
 
 export const clearAllAssets = async (userId: string) => {
   await db.clearAssets(userId);
-  try {
-    await supabase.from('assets').delete().eq('user_id', userId);
-  } catch (e) {
-    console.error("Cloud mass delete failed");
+  if (cloudSyncActive.assets) {
+    try {
+      await supabase.from('assets').delete().eq('user_id', userId);
+    } catch (e) {}
   }
 };

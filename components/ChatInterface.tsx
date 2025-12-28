@@ -5,7 +5,6 @@ import { streamChatResponse } from '../services/geminiService';
 
 interface ChatInterfaceProps {
   chat: ChatSession | null;
-  // Removed onSendMessage as it is handled internally via streamChatResponse in handleSubmit
   onUpdateChat: (updated: ChatSession) => void;
 }
 
@@ -16,10 +15,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [chat?.messages, streamingContent, isStreaming]);
+
+  useEffect(() => {
+    if (chatContainerRef.current && (window as any).renderMathInElement) {
+      (window as any).renderMathInElement(chatContainerRef.current, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true }
+        ],
+        throwOnError: false
+      });
+    }
+  }, [chat?.messages, streamingContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +79,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
       const finalizedChat = {
         ...updatedChat,
         messages: [...updatedChat.messages, modelMsg],
-        // Auto-title if first message and still generic
         title: chat.messages.length === 0 && chat.title === 'New Discussion' ? input.slice(0, 30) + (input.length > 30 ? '...' : '') : chat.title
       };
       
@@ -118,27 +131,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar pb-32">
-        {chat.messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-6 max-w-4xl mx-auto animate-fadeIn ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-             {msg.role === 'model' && <div className="w-10 h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white"><i className="fas fa-brain"></i></div>}
-             <div 
-              style={{ whiteSpace: 'pre-wrap' }}
-              className={`p-5 rounded-3xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none'}`}>
-                {msg.content}
-             </div>
-             {msg.role === 'user' && <div className="w-10 h-10 rounded-2xl bg-slate-800 shrink-0 flex items-center justify-center text-slate-400 font-bold">U</div>}
-          </div>
-        ))}
-        {isStreaming && (
-          <div className="flex gap-6 max-w-4xl mx-auto animate-pulse">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white"><i className="fas fa-circle-notch animate-spin"></i></div>
-            <div 
-              style={{ whiteSpace: 'pre-wrap' }}
-              className="p-5 rounded-3xl bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none text-sm leading-relaxed">
-              {streamingContent || "StudyEasierAI is resonating..."}
+        <div ref={chatContainerRef} className="space-y-10">
+          {chat.messages.map((msg) => (
+            <div key={msg.id} className={`flex gap-6 max-w-4xl mx-auto animate-fadeIn ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+               {msg.role === 'model' && <div className="w-10 h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20"><i className="fas fa-brain"></i></div>}
+               <div 
+                style={{ whiteSpace: 'pre-wrap' }}
+                className={`p-5 rounded-3xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none'}`}>
+                  {msg.content}
+               </div>
+               {msg.role === 'user' && <div className="w-10 h-10 rounded-2xl bg-slate-800 shrink-0 flex items-center justify-center text-slate-400 font-bold">U</div>}
             </div>
-          </div>
-        )}
+          ))}
+          {isStreaming && (
+            <div className="flex gap-6 max-w-4xl mx-auto animate-pulse">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white"><i className="fas fa-circle-notch animate-spin"></i></div>
+              <div 
+                style={{ whiteSpace: 'pre-wrap' }}
+                className="p-5 rounded-3xl bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none text-sm leading-relaxed">
+                {streamingContent || "StudyEasierAI is resonating..."}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent">
