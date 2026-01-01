@@ -7,6 +7,16 @@ import SummaryView from './SummaryView';
 import QuizView from './QuizView';
 import SlideView from './SlideView';
 
+const LOADING_STATUSES = [
+  "Initializing Research Engine...",
+  "Fetching Source Transcripts...",
+  "Cross-referencing Academic Data...",
+  "Generating Mastery Summary...",
+  "Constructing Knowledge Quiz...",
+  "Designing Visual Slides...",
+  "Finalizing Synthesis..."
+];
+
 interface LabPanelProps {
   onSaveAsset: (asset: Omit<LabAsset, 'id' | 'timestamp' | 'userId'>) => void;
   viewingAsset?: LabAsset | null;
@@ -15,9 +25,20 @@ interface LabPanelProps {
 const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
   const [activeTool, setActiveTool] = useState<LabTool>('summary');
   const [loading, setLoading] = useState(false);
+  const [statusIndex, setStatusIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [currentPackage, setCurrentPackage] = useState<any>(null);
   const [lastSourceInfo, setLastSourceInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    let interval: any;
+    if (loading) {
+      interval = setInterval(() => {
+        setStatusIndex((prev) => (prev + 1) % LOADING_STATUSES.length);
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // If viewing a saved asset from the vault
   useEffect(() => {
@@ -35,7 +56,9 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
   const handleSourceSubmission = async (source: { file?: File; url?: string }) => {
     setLoading(true);
     setError(null);
-    setLastSourceInfo(source.file?.name || source.url || "Resource");
+    setStatusIndex(0);
+    const sourceName = source.file?.name || source.url || "Resource";
+    setLastSourceInfo(sourceName);
 
     try {
       let sourcePayload: { file?: { base64: string; mimeType: string }; url?: string } = {};
@@ -52,7 +75,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
         sourcePayload = { url: source.url };
       }
 
-      // Generate ALL content (Summary, Quiz, Slides) in one AI pass
       const result = await processUnifiedLabContent(sourcePayload);
       setCurrentPackage(result);
 
@@ -61,19 +83,19 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
         title: result.title,
         type: 'summary',
         content: result.summary.content,
-        sourceName: lastSourceInfo || "Resource"
+        sourceName: sourceName
       });
       onSaveAsset({
         title: result.title,
         type: 'quiz',
         content: result.quiz,
-        sourceName: lastSourceInfo || "Resource"
+        sourceName: sourceName
       });
       onSaveAsset({
         title: result.title,
         type: 'slides',
         content: result.slides,
-        sourceName: lastSourceInfo || "Resource"
+        sourceName: sourceName
       });
 
     } catch (err: any) {
@@ -103,7 +125,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
           <p className="text-slate-500 font-medium">Single-pass intelligent extraction from any source.</p>
         </header>
 
-        {/* Tab Switching (Only show if we have data or are loading) */}
         {(currentPackage || loading) && (
           <div className="flex justify-center gap-4 mb-10 no-print">
             {(['summary', 'quiz', 'slides'] as LabTool[]).map((t) => (
@@ -138,24 +159,38 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
         )}
 
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-6 no-print">
+          <div className="flex flex-col items-center justify-center py-24 space-y-8 no-print animate-fadeIn">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
+              <div className="w-20 h-20 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <i className="fas fa-microscope text-emerald-500 animate-pulse text-xs"></i>
+                <i className="fas fa-brain text-emerald-500 animate-pulse text-sm"></i>
               </div>
             </div>
-            <div className="text-center">
-              <p className="text-emerald-400 font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">AI Analyzing Content Package...</p>
-              <p className="text-slate-600 text-[9px] mt-2 font-bold uppercase tracking-widest">Generating Summary, Quiz, and Slides sequentially for consistency</p>
+            <div className="text-center max-w-sm">
+              <p className="text-emerald-400 font-black animate-pulse uppercase tracking-[0.4em] text-[11px] mb-2">
+                {LOADING_STATUSES[statusIndex]}
+              </p>
+              <p className="text-slate-600 text-[9px] font-bold uppercase tracking-widest leading-relaxed">
+                Our AI is currently searching for transcripts and cross-referencing metadata to ensure high accuracy.
+              </p>
+            </div>
+            
+            <div className="w-48 h-1 bg-slate-900 rounded-full overflow-hidden">
+               <div className="h-full bg-emerald-500 animate-[loading_2s_ease-in-out_infinite]"></div>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="p-6 bg-rose-500/10 border border-rose-500/20 rounded-3xl text-rose-400 text-center mb-8 no-print font-bold text-xs uppercase tracking-widest">
-            <i className="fas fa-exclamation-triangle mr-2"></i> {error}
-            <button onClick={() => setError(null)} className="ml-4 underline">Retry</button>
+          <div className="p-8 bg-rose-500/10 border border-rose-500/20 rounded-3xl text-rose-400 text-center mb-8 no-print font-bold text-xs uppercase tracking-widest leading-relaxed">
+            <div className="mb-4 text-2xl"><i className="fas fa-exclamation-triangle"></i></div>
+            <p className="mb-4">{error}</p>
+            <button 
+              onClick={() => { setError(null); setCurrentPackage(null); }} 
+              className="bg-rose-500 text-white px-6 py-2 rounded-xl hover:bg-rose-600 transition-colors"
+            >
+              Try Different Source
+            </button>
           </div>
         )}
 
@@ -196,6 +231,12 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
           </div>
         )}
       </div>
+      <style>{`
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 };

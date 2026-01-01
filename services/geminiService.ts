@@ -92,25 +92,28 @@ export const processUnifiedLabContent = async (
 ): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const instruction = `You are a world-class educational content creator and expert multilingual analyst. 
+  const instruction = `You are a world-class academic researcher and content architect. 
 
-  CORE MISSION: 
-  Perform an exhaustive analysis of the provided material to generate an "Elite Mastery Learning Package".
+  CORE RESEARCH PROTOCOL (CRITICAL):
+  1. SOURCE ANALYSIS: Exhaustively analyze the provided ${source.url ? 'URL' : 'file'}. 
+  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve:
+     - The official video transcript or subtitles.
+     - Detailed video descriptions and metadata.
+     - Verified third-party summaries of the content.
+  3. ANTI-HALLUCINATION: Do NOT invent content based on the URL slug or video title alone. If the search tool returns no transcript or content data, report an error: "CONTENT_UNAVAILABLE".
+  4. LANGUAGE: Translate all extracted data into academic English.
 
-  STRICT CONTENT DEPTH REQUIREMENTS:
-  - TITLE: Concise, academic, and professional.
-  - MASTER SUMMARY: Exhaustive English markdown summary (1000+ words). Use H1, H2, H3, and Bold text for key terms.
+  STRICT OUTPUT REQUIREMENTS:
+  - TITLE: Concise, professional course title.
+  - MASTER SUMMARY: 1200+ words of structured markdown. Use H1, H2, H3. Bold key concepts.
   - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
-  - QUIZ: 10 challenging Multiple Choice Questions with detailed explanations for every answer.
-  - SLIDES (12 Slides):
-    * Bullet points: Each slide MUST have at least 8 detailed, high-value bullet points.
-    * Speaker notes: Each slide MUST have a comprehensive script of at least 200 words.
-    * imageKeyword: A highly descriptive, context-rich prompt for an image generator.
+  - QUIZ: 10 complex Multiple Choice Questions with high-value explanations.
+  - SLIDES (12 Slides): 
+    * 8+ bullet points per slide.
+    * 250+ word expert script (speaker notes) per slide.
+    * Descriptive keyword for high-res educational imagery.
 
-  MULTILINGUAL PROTOCOL:
-  - Translate all content into English. The entire output must be English.
-
-  OUTPUT MUST BE A SINGLE VALID JSON OBJECT matching the responseSchema.`;
+  JSON FORMAT: Respond ONLY with a valid JSON object matching the responseSchema.`;
 
   const responseSchema = {
     type: Type.OBJECT,
@@ -155,7 +158,11 @@ export const processUnifiedLabContent = async (
   if (source.file) {
     parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
   } else if (source.url) {
-    parts.push({ text: `Analyze this source and generate the full package: ${source.url}` });
+    parts.push({ 
+      text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. 
+      Start by searching for the transcript: "transcript for ${source.url}" and "detailed summary of ${source.url}". 
+      Ensure the analysis is 100% grounded in the retrieved text. Proceed with full package generation.` 
+    });
   }
   parts.push({ text: instruction });
 
@@ -174,8 +181,11 @@ export const processUnifiedLabContent = async (
 
   try {
     const text = response.text || "{}";
+    if (text.includes("CONTENT_UNAVAILABLE")) {
+      throw new Error("The AI could not securely retrieve the video content. This link might be private or restricted.");
+    }
     return JSON.parse(text);
-  } catch (e) {
-    throw new Error("AI synthesis pass failed. Content may be too large or complex.");
+  } catch (e: any) {
+    throw new Error(e.message || "Deep analysis pass failed. Content might be too large or complex for extraction.");
   }
 };

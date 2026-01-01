@@ -75,7 +75,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
         </button>
       </div>
 
-      <div className="bg-[#121212] rounded-3xl border border-slate-800 p-8 shadow-2xl">
+      <div className="bg-[#121212] rounded-3xl border border-slate-800 p-8 shadow-2xl relative overflow-hidden">
         {activeTab === 'file' ? (
           <div
             onDragOver={handleDragOver}
@@ -116,6 +116,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
             <div className="mb-8 inline-flex items-center justify-center w-16 h-16 bg-red-600/10 text-red-500 rounded-2xl shadow-xl">
               <i className="fab fa-youtube text-2xl"></i>
             </div>
+            
+            <div className="inline-block bg-red-600/20 text-red-500 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest mb-6 border border-red-600/20">
+              <i className="fas fa-search mr-2"></i> Deep Grounding Active
+            </div>
+
             <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">
               YouTube Analysis
             </h3>
@@ -139,6 +144,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
                 <i className={`fas ${isLoading ? 'fa-spinner fa-spin' : 'fa-arrow-right'}`}></i>
               </button>
             </form>
+            <p className="mt-6 text-[9px] text-slate-600 font-bold uppercase tracking-widest text-center">
+              Processing may take 30-60s for deep transcript grounding.
+            </p>
           </div>
         )}
       </div>
