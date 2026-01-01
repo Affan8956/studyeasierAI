@@ -30,7 +30,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
           { left: '\\(', right: '\\)', display: false },
           { left: '\\[', right: '\\]', display: true }
         ],
-        throwOnError: false
+        throwOnError: false,
+        trust: true
       });
     }
   }, [chat?.messages, streamingContent]);

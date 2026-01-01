@@ -18,7 +18,8 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
           { left: '\\(', right: '\\)', display: false },
           { left: '\\[', right: '\\]', display: true }
         ],
-        throwOnError: false
+        throwOnError: false,
+        trust: true
       });
     }
   }, [summary]);
@@ -94,37 +95,79 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
   };
 
   const formatSummary = (text: string) => {
-    return text.split('\n').map((line, i) => {
+    const lines = text.split('\n');
+    const elements: React.ReactNode[] = [];
+    let mathBuffer: string[] = [];
+    let inMathBlock = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmed = line.trim();
-      
+
+      // Detection for multi-line block math
+      if (trimmed === '$$' || (trimmed.startsWith('$$') && !trimmed.endsWith('$$', trimmed.length - 1))) {
+        if (inMathBlock) {
+          mathBuffer.push(line);
+          elements.push(
+            <div key={`math-${i}`} className="my-6 bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 overflow-x-auto">
+              {mathBuffer.join('\n')}
+            </div>
+          );
+          mathBuffer = [];
+          inMathBlock = false;
+        } else {
+          inMathBlock = true;
+          mathBuffer.push(line);
+        }
+        continue;
+      }
+
+      if (inMathBlock) {
+        mathBuffer.push(line);
+        if (trimmed.endsWith('$$')) {
+          elements.push(
+            <div key={`math-${i}`} className="my-6 bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 overflow-x-auto">
+              {mathBuffer.join('\n')}
+            </div>
+          );
+          mathBuffer = [];
+          inMathBlock = false;
+        }
+        continue;
+      }
+
       // Headers
       if (trimmed.startsWith('# ')) {
-        return <h1 key={i} className="text-3xl font-black mt-8 mb-6 text-white border-b border-slate-800 pb-4 tracking-tight uppercase">{formatText(trimmed.replace('# ', ''))}</h1>;
+        elements.push(<h1 key={i} className="text-3xl font-black mt-8 mb-6 text-white border-b border-slate-800 pb-4 tracking-tight uppercase">{formatText(trimmed.replace('# ', ''))}</h1>);
+        continue;
       }
       if (trimmed.startsWith('## ')) {
-        return <h2 key={i} className="text-2xl font-bold mt-8 mb-4 text-emerald-400 flex items-center gap-3">
+        elements.push(<h2 key={i} className="text-2xl font-bold mt-8 mb-4 text-emerald-400 flex items-center gap-3">
           <span className="w-2 h-6 bg-emerald-500 rounded-full inline-block shrink-0"></span>
           {formatText(trimmed.replace('## ', ''))}
-        </h2>;
+        </h2>);
+        continue;
       }
       if (trimmed.startsWith('### ')) {
-        return <h3 key={i} className="text-xl font-bold mt-6 mb-3 text-emerald-300/90">{formatText(trimmed.replace('### ', ''))}</h3>;
+        elements.push(<h3 key={i} className="text-xl font-bold mt-6 mb-3 text-emerald-300/90">{formatText(trimmed.replace('### ', ''))}</h3>);
+        continue;
       }
 
       // Lists
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        return (
+        elements.push(
           <li key={i} className="ml-6 list-none mb-3 text-slate-300 relative pl-6 leading-relaxed">
             <span className="absolute left-0 text-emerald-500 font-black top-0">•</span>
             {formatText(trimmed.substring(2))}
           </li>
         );
+        continue;
       }
 
       // Images
       const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
       if (imgMatch) {
-        return (
+        elements.push(
           <div key={i} className="my-8 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-black">
             <img 
               crossOrigin="anonymous" 
@@ -135,16 +178,23 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
             {imgMatch[1] && <p className="text-center py-3 bg-[#0a0a0a] text-[10px] text-slate-500 font-bold uppercase tracking-widest border-t border-slate-800">{imgMatch[1]}</p>}
           </div>
         );
+        continue;
       }
 
       if (trimmed === '---' || trimmed === '***') {
-        return <hr key={i} className="my-10 border-slate-800" />;
+        elements.push(<hr key={i} className="my-10 border-slate-800" />);
+        continue;
       }
 
-      if (trimmed === '') return <div key={i} className="h-4" />;
+      if (trimmed === '') {
+        elements.push(<div key={i} className="h-4" />);
+        continue;
+      }
       
-      return <p key={i} className="mb-4 leading-relaxed text-slate-300 text-lg">{formatText(line)}</p>;
-    });
+      elements.push(<p key={i} className="mb-4 leading-relaxed text-slate-300 text-lg">{formatText(line)}</p>);
+    }
+
+    return elements;
   };
 
   return (

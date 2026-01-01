@@ -5,7 +5,7 @@ import { Message, AIMode } from "../types";
 const PRO_MODEL = "gemini-3-pro-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
-const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math (equations on their own line).";
+const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math. For ellipses in equations, use '\\dots' or '\\cdots' instead of '...'. Ensure all subscripts and superscripts are properly formatted with '_' and '^'.";
 
 const SYSTEM_PROMPTS: Record<AIMode, string> = {
   study: `You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English. Provide deep, structured reasoning. ${MATH_INSTRUCTION}`,

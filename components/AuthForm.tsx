@@ -137,7 +137,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
         <div className="p-10 pb-6">
           <div className="flex justify-center mb-8">
             <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white shadow-2xl ${step === 'waiting' ? 'bg-emerald-600 shadow-emerald-200' : 'bg-indigo-600 shadow-indigo-200'} transition-all duration-500`}>
-              <i className={`fas ${step === 'waiting' ? 'fa-envelope-open-text' : isLogin ? 'fa-fingerprint' : 'fa-user-plus'} text-3xl`}></i>
+              <i className={`fas ${step === 'waiting' ? 'fa-envelope-open-text' : isLogin ? 'fa-lock' : 'fa-user-plus'} text-3xl`}></i>
             </div>
           </div>
           
@@ -235,7 +235,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
                 className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-4 disabled:opacity-50 disabled:cursor-wait mt-4 uppercase tracking-[0.2em] text-xs"
               >
                 {loading ? <i className="fas fa-circle-notch animate-spin"></i> : <i className={`fas ${isLogin ? 'fa-sign-in-alt' : 'fa-paper-plane'}`}></i>}
-                {isLogin ? 'Initialize Session' : 'Create Account'}
+                {isLogin ? 'Login' : 'Create Account'}
               </button>
             </form>
           ) : (
