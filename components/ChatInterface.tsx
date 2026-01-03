@@ -22,18 +22,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
   }, [chat?.messages, streamingContent, isStreaming]);
 
   useEffect(() => {
-    if (chatContainerRef.current && (window as any).renderMathInElement) {
-      (window as any).renderMathInElement(chatContainerRef.current, {
-        delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '$', right: '$', display: false },
-          { left: '\\(', right: '\\)', display: false },
-          { left: '\\[', right: '\\]', display: true }
-        ],
-        throwOnError: false,
-        trust: true
-      });
-    }
+    const renderMath = () => {
+      if (chatContainerRef.current && (window as any).renderMathInElement) {
+        (window as any).renderMathInElement(chatContainerRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ],
+          throwOnError: false,
+          trust: true,
+          strict: false
+        });
+      }
+    };
+
+    const timeout = setTimeout(renderMath, 150);
+    return () => clearTimeout(timeout);
   }, [chat?.messages, streamingContent]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,7 +144,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
                {msg.role === 'model' && <div className="w-10 h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20"><i className="fas fa-brain"></i></div>}
                <div 
                 style={{ whiteSpace: 'pre-wrap' }}
-                className={`p-5 rounded-3xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none'}`}>
+                className={`p-5 rounded-3xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none font-sans'}`}>
                   {msg.content}
                </div>
                {msg.role === 'user' && <div className="w-10 h-10 rounded-2xl bg-slate-800 shrink-0 flex items-center justify-center text-slate-400 font-bold">U</div>}
@@ -149,7 +155,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
               <div className="w-10 h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white"><i className="fas fa-circle-notch animate-spin"></i></div>
               <div 
                 style={{ whiteSpace: 'pre-wrap' }}
-                className="p-5 rounded-3xl bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none text-sm leading-relaxed">
+                className="p-5 rounded-3xl bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none text-sm leading-relaxed font-sans">
                 {streamingContent || "StudyEasierAI is resonating..."}
               </div>
             </div>

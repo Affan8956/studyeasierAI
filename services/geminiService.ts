@@ -5,7 +5,7 @@ import { Message, AIMode } from "../types";
 const PRO_MODEL = "gemini-3-pro-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
-const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math. For ellipses in equations, use '\\dots' or '\\cdots' instead of '...'. Ensure all subscripts and superscripts are properly formatted with '_' and '^'.";
+const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math. CRITICAL: Use '\\dots' for ellipses in math, NEVER '...'. Ensure subscripts like '_n' and exponents like '^2' are properly grouped. Example: $$(N)_b = d_{n-1}d_{n-2}\\dots d_1d_0 . d_{-1}d_{-2}\\dots d_{-m}$$";
 
 const SYSTEM_PROMPTS: Record<AIMode, string> = {
   study: `You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English. Provide deep, structured reasoning. ${MATH_INSTRUCTION}`,
@@ -96,11 +96,8 @@ export const processUnifiedLabContent = async (
 
   CORE RESEARCH PROTOCOL (CRITICAL):
   1. SOURCE ANALYSIS: Exhaustively analyze the provided ${source.url ? 'URL' : 'file'}. 
-  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve:
-     - The official video transcript or subtitles.
-     - Detailed video descriptions and metadata.
-     - Verified third-party summaries of the content.
-  3. ANTI-HALLUCINATION: Do NOT invent content based on the URL slug or video title alone. If the search tool returns no transcript or content data, report an error: "CONTENT_UNAVAILABLE".
+  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve transcripts and metadata.
+  3. ANTI-HALLUCINATION: Do NOT invent content. If the search tool returns no transcript, report an error: "CONTENT_UNAVAILABLE".
   4. LANGUAGE: Translate all extracted data into academic English.
 
   STRICT OUTPUT REQUIREMENTS:
@@ -159,9 +156,7 @@ export const processUnifiedLabContent = async (
     parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
   } else if (source.url) {
     parts.push({ 
-      text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. 
-      Start by searching for the transcript: "transcript for ${source.url}" and "detailed summary of ${source.url}". 
-      Ensure the analysis is 100% grounded in the retrieved text. Proceed with full package generation.` 
+      text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. Proceed with full package generation.` 
     });
   }
   parts.push({ text: instruction });

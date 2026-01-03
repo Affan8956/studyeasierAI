@@ -10,23 +10,27 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
   const summaryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (summaryRef.current && (window as any).renderMathInElement) {
-      (window as any).renderMathInElement(summaryRef.current, {
-        delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '$', right: '$', display: false },
-          { left: '\\(', right: '\\)', display: false },
-          { left: '\\[', right: '\\]', display: true }
-        ],
-        throwOnError: false,
-        trust: true
-      });
-    }
+    const renderMath = () => {
+      if (summaryRef.current && (window as any).renderMathInElement) {
+        (window as any).renderMathInElement(summaryRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ],
+          throwOnError: false,
+          trust: true,
+          strict: false
+        });
+      }
+    };
+
+    const timeout = setTimeout(renderMath, 150);
+    return () => clearTimeout(timeout);
   }, [summary]);
 
   const formatText = (text: string) => {
-    // Handle Bold (**text**) and Italics (*text*)
-    // We don't process $ here because KaTeX auto-render handles it
     const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
@@ -49,49 +53,73 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
     URL.revokeObjectURL(url);
   };
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = async () => {
     if (!summaryRef.current) return;
-    
-    const element = summaryRef.current.cloneNode(true) as HTMLElement;
-    const actionButtons = element.querySelector('.no-print-zone');
-    if (actionButtons) actionButtons.remove();
 
-    element.style.width = '800px';
-    element.style.padding = '50px';
-    element.style.backgroundColor = '#000000';
-    element.style.color = '#f1f5f9';
-    element.style.margin = '0';
-    element.style.borderRadius = '0';
-    element.style.border = 'none';
+    // Create a temporary container for PDF generation to avoid visible layout shifts
+    const pdfContainer = document.createElement('div');
+    pdfContainer.style.position = 'absolute';
+    pdfContainer.style.left = '-9999px';
+    pdfContainer.style.top = '-9999px';
+    pdfContainer.style.width = '800px'; // Standard width for high-quality scaling
+    pdfContainer.className = 'pdf-export-root';
     
-    const textElements = element.querySelectorAll('p, li, span, h1, h2, h3, h4');
-    textElements.forEach((el: any) => {
-      if (!el.classList.contains('text-emerald-400') && !el.classList.contains('text-indigo-400')) {
-        el.style.color = '#cbd5e1';
+    // Clone the summary content
+    const contentClone = summaryRef.current.cloneNode(true) as HTMLElement;
+    
+    // Remove UI elements that shouldn't be in the PDF
+    const noPrintElements = contentClone.querySelectorAll('.no-print-zone');
+    noPrintElements.forEach(el => el.remove());
+
+    // Inject styles specifically for PDF rendering to preserve colors and layout
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .pdf-export-root {
+        background-color: #0d0d0d !important;
+        color: #f1f5f9 !important;
+        font-family: 'Inter', sans-serif !important;
+        padding: 60px !important;
       }
-    });
+      .pdf-export-root h1 { color: #ffffff !important; font-weight: 900 !important; }
+      .pdf-export-root h2 { color: #10b981 !important; font-weight: 800 !important; margin-top: 40px !important; }
+      .pdf-export-root h3 { color: #34d399 !important; font-weight: 700 !important; }
+      .pdf-export-root p, .pdf-export-root li { color: #cbd5e1 !important; line-height: 1.6 !important; margin-bottom: 16px !important; }
+      .pdf-export-root .text-emerald-400 { color: #10b981 !important; }
+      .pdf-export-root .text-indigo-400 { color: #818cf8 !important; }
+      .pdf-export-root .bg-emerald-500 { background-color: #10b981 !important; }
+      .pdf-export-root .bg-indigo-600 { background-color: #4f46e5 !important; }
+      .pdf-export-root .border-slate-800 { border-color: #1e293b !important; }
+      .pdf-export-root .katex { color: #10b981 !important; }
+      .pdf-export-root img { border-radius: 12px !important; max-width: 100% !important; margin: 30px 0 !important; }
+    `;
+    
+    pdfContainer.appendChild(style);
+    pdfContainer.appendChild(contentClone);
+    document.body.appendChild(pdfContainer);
 
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: 10,
       filename: `${title.replace(/\s+/g, '_')}_StudySummary.pdf`,
-      image: { type: 'jpeg', quality: 1.0 },
+      image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
         scale: 2, 
         useCORS: true, 
-        backgroundColor: '#000000',
-        logging: false,
+        backgroundColor: '#0d0d0d',
         letterRendering: true,
-        allowTaint: true
+        logging: false
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    const wrapper = document.createElement('div');
-    wrapper.style.backgroundColor = '#000000';
-    wrapper.appendChild(element);
-
-    // @ts-ignore
-    window.html2pdf().set(opt).from(wrapper).save();
+    try {
+      // @ts-ignore
+      await window.html2pdf().set(opt).from(pdfContainer).save();
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+    } finally {
+      document.body.removeChild(pdfContainer);
+    }
   };
 
   const formatSummary = (text: string) => {
@@ -104,12 +132,20 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
       const line = lines[i];
       const trimmed = line.trim();
 
-      // Detection for multi-line block math
-      if (trimmed === '$$' || (trimmed.startsWith('$$') && !trimmed.endsWith('$$', trimmed.length - 1))) {
+      if (trimmed.startsWith('$$')) {
+        if (trimmed.endsWith('$$') && trimmed.length > 2 && !inMathBlock) {
+          elements.push(
+            <div key={`math-single-${i}`} className="my-6 bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10 overflow-x-auto text-center font-serif">
+              {line}
+            </div>
+          );
+          continue;
+        }
+
         if (inMathBlock) {
           mathBuffer.push(line);
           elements.push(
-            <div key={`math-${i}`} className="my-6 bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 overflow-x-auto">
+            <div key={`math-block-${i}`} className="my-6 bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10 overflow-x-auto text-center font-serif whitespace-pre-wrap">
               {mathBuffer.join('\n')}
             </div>
           );
@@ -124,19 +160,9 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
 
       if (inMathBlock) {
         mathBuffer.push(line);
-        if (trimmed.endsWith('$$')) {
-          elements.push(
-            <div key={`math-${i}`} className="my-6 bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 overflow-x-auto">
-              {mathBuffer.join('\n')}
-            </div>
-          );
-          mathBuffer = [];
-          inMathBlock = false;
-        }
         continue;
       }
 
-      // Headers
       if (trimmed.startsWith('# ')) {
         elements.push(<h1 key={i} className="text-3xl font-black mt-8 mb-6 text-white border-b border-slate-800 pb-4 tracking-tight uppercase">{formatText(trimmed.replace('# ', ''))}</h1>);
         continue;
@@ -153,7 +179,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
         continue;
       }
 
-      // Lists
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
         elements.push(
           <li key={i} className="ml-6 list-none mb-3 text-slate-300 relative pl-6 leading-relaxed">
@@ -164,7 +189,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
         continue;
       }
 
-      // Images
       const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
       if (imgMatch) {
         elements.push(
