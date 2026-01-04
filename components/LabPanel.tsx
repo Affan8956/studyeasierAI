@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LabTool, LabAsset } from '../types';
 import { processUnifiedLabContent } from '../services/geminiService';
@@ -40,11 +39,9 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
     return () => clearInterval(interval);
   }, [loading]);
 
-  // If viewing a saved asset from the vault
   useEffect(() => {
     if (viewingAsset) {
       setActiveTool(viewingAsset.type);
-      // For viewing existing assets, we wrap them back into our package format
       const mockPackage: any = { title: viewingAsset.title };
       if (viewingAsset.type === 'summary') mockPackage.summary = { content: viewingAsset.content };
       if (viewingAsset.type === 'quiz') mockPackage.quiz = viewingAsset.content;
@@ -78,7 +75,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
       const result = await processUnifiedLabContent(sourcePayload);
       setCurrentPackage(result);
 
-      // Save each generated part as an individual asset for the vault
       onSaveAsset({
         title: result.title,
         type: 'summary',
@@ -103,16 +99,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const downloadPackage = () => {
-    if (!currentPackage) return;
-    const blob = new Blob([JSON.stringify(currentPackage, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${currentPackage.title.replace(/\s+/g, '_')}_package.json`;
-    link.click();
   };
 
   return (
@@ -201,12 +187,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
                 <i className="fas fa-fingerprint mr-2 text-emerald-500"></i> Entity: <span className="text-slate-300">{currentPackage.title}</span>
               </p>
               <div className="flex gap-4">
-                <button 
-                  onClick={downloadPackage}
-                  className="text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
-                >
-                  <i className="fas fa-download"></i> Full Export
-                </button>
                 <button 
                   onClick={() => {
                     setCurrentPackage(null);

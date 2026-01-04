@@ -5,7 +5,7 @@ import { Message, AIMode } from "../types";
 const PRO_MODEL = "gemini-3-pro-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
-const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math. CRITICAL: Use '\\dots' for ellipses in math, NEVER '...'. Ensure subscripts like '_n' and exponents like '^2' are properly grouped. Example: $$(N)_b = d_{n-1}d_{n-2}\\dots d_1d_0 . d_{-1}d_{-2}\\dots d_{-m}$$";
+const MATH_INSTRUCTION = "For mathematical formulas or equations, ALWAYS use LaTeX brackets: '\\(' and '\\)' for inline math, and '\\[' and '\\]' for block math. NEVER use single or double dollar signs ($ or $$) as they interfere with currency formatting. STRICT RULES: 1. Escape all currency symbols (e.g., \\$1,000). 2. Ensure all LaTeX is syntactically correct.";
 
 const SYSTEM_PROMPTS: Record<AIMode, string> = {
   study: `You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English. Provide deep, structured reasoning. ${MATH_INSTRUCTION}`,
@@ -57,11 +57,10 @@ export const streamChatResponse = async (
 export const generateSlideImage = async (title: string, context: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const visualPrompt = `A high-resolution, professional, and educational 3D render or cinematic photograph for a lecture slide.
+  const visualPrompt = `Generate a professional educational visual for a lecture slide.
   Subject: ${title}
-  Content Context: ${context}
-  Visual Style: Modern, clean, academic aesthetic, 4K, realistic textures, volumetric lighting. 
-  Requirement: NO TEXT in the image. Scientific and instructional vibes. Highly relatable to the subject matter.`;
+  Context: ${context}
+  Style: Academic, high-quality render, no text.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -74,12 +73,15 @@ export const generateSlideImage = async (title: string, context: string): Promis
       }
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("No candidate returned");
+
+    for (const part of candidate.content.parts) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data returned");
+    throw new Error("No image data in response");
   } catch (err) {
     console.error("Image generation failed:", err);
     return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
@@ -92,25 +94,20 @@ export const processUnifiedLabContent = async (
 ): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const instruction = `You are a world-class academic researcher and content architect. 
-
-  CORE RESEARCH PROTOCOL (CRITICAL):
-  1. SOURCE ANALYSIS: Exhaustively analyze the provided ${source.url ? 'URL' : 'file'}. 
-  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve transcripts and metadata.
-  3. ANTI-HALLUCINATION: Do NOT invent content. If the search tool returns no transcript, report an error: "CONTENT_UNAVAILABLE".
-  4. LANGUAGE: Translate all extracted data into academic English.
-
-  STRICT OUTPUT REQUIREMENTS:
-  - TITLE: Concise, professional course title.
-  - MASTER SUMMARY: 1200+ words of structured markdown. Use H1, H2, H3. Bold key concepts.
+  const instruction = `You are a world-class academic content architect. 
+  
+  PROCESS:
+  1. Analyze ${source.url ? 'URL' : 'file'}. Use Search for URLs.
+  2. Language: English.
+  
+  OUTPUT:
+  - TITLE: Course title.
+  - MASTER SUMMARY: Structured markdown.
   - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
-  - QUIZ: 10 complex Multiple Choice Questions with high-value explanations.
-  - SLIDES (12 Slides): 
-    * 8+ bullet points per slide.
-    * 250+ word expert script (speaker notes) per slide.
-    * Descriptive keyword for high-res educational imagery.
+  - QUIZ: 10 MCQ with explanations.
+  - SLIDES (12 Slides): Bullets, script, image keyword.
 
-  JSON FORMAT: Respond ONLY with a valid JSON object matching the responseSchema.`;
+  JSON FORMAT ONLY.`;
 
   const responseSchema = {
     type: Type.OBJECT,
@@ -155,9 +152,7 @@ export const processUnifiedLabContent = async (
   if (source.file) {
     parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
   } else if (source.url) {
-    parts.push({ 
-      text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. Proceed with full package generation.` 
-    });
+    parts.push({ text: `Analyze source: ${source.url}` });
   }
   parts.push({ text: instruction });
 
@@ -175,12 +170,8 @@ export const processUnifiedLabContent = async (
   });
 
   try {
-    const text = response.text || "{}";
-    if (text.includes("CONTENT_UNAVAILABLE")) {
-      throw new Error("The AI could not securely retrieve the video content. This link might be private or restricted.");
-    }
-    return JSON.parse(text);
+    return JSON.parse(response.text || "{}");
   } catch (e: any) {
-    throw new Error(e.message || "Deep analysis pass failed. Content might be too large or complex for extraction.");
+    throw new Error("Failed to parse AI response.");
   }
 };
