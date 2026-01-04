@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LabTool, LabAsset } from '../types';
 import { processUnifiedLabContent } from '../services/geminiService';
@@ -5,12 +6,14 @@ import FileUpload from './FileUpload';
 import SummaryView from './SummaryView';
 import QuizView from './QuizView';
 import SlideView from './SlideView';
+import FlashcardView from './FlashcardView';
 
 const LOADING_STATUSES = [
   "Initializing Research Engine...",
   "Fetching Source Transcripts...",
   "Cross-referencing Academic Data...",
   "Generating Mastery Summary...",
+  "Synthesizing Flashcards...",
   "Constructing Knowledge Quiz...",
   "Designing Visual Slides...",
   "Finalizing Synthesis..."
@@ -39,13 +42,16 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
     return () => clearInterval(interval);
   }, [loading]);
 
+  // If viewing a saved asset from the vault
   useEffect(() => {
     if (viewingAsset) {
       setActiveTool(viewingAsset.type);
+      // For viewing existing assets, we wrap them back into our package format
       const mockPackage: any = { title: viewingAsset.title };
       if (viewingAsset.type === 'summary') mockPackage.summary = { content: viewingAsset.content };
       if (viewingAsset.type === 'quiz') mockPackage.quiz = viewingAsset.content;
       if (viewingAsset.type === 'slides') mockPackage.slides = viewingAsset.content;
+      if (viewingAsset.type === 'flashcards') mockPackage.flashcards = viewingAsset.content;
       setCurrentPackage(mockPackage);
     }
   }, [viewingAsset]);
@@ -75,10 +81,17 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
       const result = await processUnifiedLabContent(sourcePayload);
       setCurrentPackage(result);
 
+      // Save each generated part as an individual asset for the vault
       onSaveAsset({
         title: result.title,
         type: 'summary',
         content: result.summary.content,
+        sourceName: sourceName
+      });
+      onSaveAsset({
+        title: result.title,
+        type: 'flashcards',
+        content: result.flashcards,
         sourceName: sourceName
       });
       onSaveAsset({
@@ -101,6 +114,16 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
     }
   };
 
+  const downloadPackage = () => {
+    if (!currentPackage) return;
+    const blob = new Blob([JSON.stringify(currentPackage, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${currentPackage.title.replace(/\s+/g, '_')}_package.json`;
+    link.click();
+  };
+
   return (
     <div className="flex-1 flex flex-col p-8 overflow-y-auto custom-scrollbar">
       <div className="max-w-5xl mx-auto w-full">
@@ -112,19 +135,24 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
         </header>
 
         {(currentPackage || loading) && (
-          <div className="flex justify-center gap-4 mb-10 no-print">
-            {(['summary', 'quiz', 'slides'] as LabTool[]).map((t) => (
+          <div className="flex justify-center gap-4 mb-10 no-print flex-wrap">
+            {(['summary', 'flashcards', 'quiz', 'slides'] as LabTool[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setActiveTool(t)}
                 disabled={loading}
-                className={`px-8 py-3 rounded-2xl font-bold transition-all border ${
+                className={`px-6 py-3 rounded-2xl font-bold transition-all border ${
                   activeTool === t 
                   ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
                   : 'bg-[#151515] border-slate-800 text-slate-500 hover:text-slate-300'
                 } disabled:opacity-50`}
               >
-                <i className={`fas mr-2 ${t === 'summary' ? 'fa-file-alt' : t === 'quiz' ? 'fa-tasks' : 'fa-presentation'}`}></i>
+                <i className={`fas mr-2 ${
+                  t === 'summary' ? 'fa-file-alt' : 
+                  t === 'quiz' ? 'fa-tasks' : 
+                  t === 'flashcards' ? 'fa-clone' :
+                  'fa-presentation'
+                }`}></i>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -188,6 +216,12 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
               </p>
               <div className="flex gap-4">
                 <button 
+                  onClick={downloadPackage}
+                  className="text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
+                >
+                  <i className="fas fa-download"></i> Full Export
+                </button>
+                <button 
                   onClick={() => {
                     setCurrentPackage(null);
                     setLastSourceInfo(null);
@@ -201,6 +235,9 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
             
             {activeTool === 'summary' && currentPackage.summary && (
               <SummaryView summary={currentPackage.summary.content} title={currentPackage.title} />
+            )}
+            {activeTool === 'flashcards' && currentPackage.flashcards && (
+              <FlashcardView flashcards={currentPackage.flashcards} />
             )}
             {activeTool === 'quiz' && currentPackage.quiz && (
               <QuizView quiz={currentPackage.quiz} />

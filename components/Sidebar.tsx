@@ -80,6 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ view, setView, chats, activeChatId, o
                <button onClick={onLogout} className="text-[10px] text-rose-500 font-black uppercase hover:underline">Sign Out</button>
             </div>
          </div>
+         <div className="text-[9px] text-slate-700 font-bold uppercase tracking-widest text-center">StudyEasierAI Enterprise v3.1</div>
       </div>
     </div>
   );

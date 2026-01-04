@@ -235,7 +235,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
                 className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-4 disabled:opacity-50 disabled:cursor-wait mt-4 uppercase tracking-[0.2em] text-xs"
               >
                 {loading ? <i className="fas fa-circle-notch animate-spin"></i> : <i className={`fas ${isLogin ? 'fa-sign-in-alt' : 'fa-paper-plane'}`}></i>}
-                {isLogin ? 'Login' : 'Create Account'}
+                {isLogin ? 'Initialize Session' : 'Create Account'}
               </button>
             </form>
           ) : (

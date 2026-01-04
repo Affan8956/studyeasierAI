@@ -111,8 +111,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, on
                  {assets.length > 0 ? assets.slice(0, 4).map(asset => (
                    <div key={asset.id} className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-emerald-500/30 transition-all">
                       <div className="flex items-center gap-5">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${asset.type === 'summary' ? 'bg-emerald-600/10 text-emerald-400' : 'bg-amber-600/10 text-amber-400'}`}>
-                           <i className={`fas text-xs ${asset.type === 'summary' ? 'fa-file-text' : 'fa-tasks'}`}></i>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          asset.type === 'summary' ? 'bg-emerald-600/10 text-emerald-400' : 
+                          asset.type === 'quiz' ? 'bg-amber-600/10 text-amber-400' :
+                          asset.type === 'flashcards' ? 'bg-violet-600/10 text-violet-400' :
+                          'bg-blue-600/10 text-blue-400'
+                        }`}>
+                           <i className={`fas text-xs ${
+                             asset.type === 'summary' ? 'fa-file-text' : 
+                             asset.type === 'quiz' ? 'fa-tasks' : 
+                             asset.type === 'flashcards' ? 'fa-clone' :
+                             'fa-presentation'
+                           }`}></i>
                         </div>
                         <span className="font-bold text-sm truncate max-w-[200px] text-slate-200">{asset.title}</span>
                       </div>

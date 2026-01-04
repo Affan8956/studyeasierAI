@@ -1,7 +1,7 @@
 
 export type AIMode = 'study' | 'coding' | 'writing' | 'tutor' | 'research';
 export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings';
-export type LabTool = 'summary' | 'quiz' | 'slides';
+export type LabTool = 'summary' | 'quiz' | 'slides' | 'flashcards';
 
 export interface User {
   id: string;
@@ -42,7 +42,7 @@ export interface LabAsset {
   userId: string;
   title: string;
   type: LabTool;
-  content: any; // Can be string (summary), array (quiz), or array (slides)
+  content: any; // Can be string (summary), array (quiz), array (slides), or array (flashcards)
   sourceName: string;
   timestamp: number;
 }

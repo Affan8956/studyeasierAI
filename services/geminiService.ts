@@ -5,7 +5,7 @@ import { Message, AIMode } from "../types";
 const PRO_MODEL = "gemini-3-pro-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
-const MATH_INSTRUCTION = "For mathematical formulas or equations, ALWAYS use LaTeX brackets: '\\(' and '\\)' for inline math, and '\\[' and '\\]' for block math. NEVER use single or double dollar signs ($ or $$) as they interfere with currency formatting. STRICT RULES: 1. Escape all currency symbols (e.g., \\$1,000). 2. Ensure all LaTeX is syntactically correct.";
+const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math (equations on their own line).";
 
 const SYSTEM_PROMPTS: Record<AIMode, string> = {
   study: `You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English. Provide deep, structured reasoning. ${MATH_INSTRUCTION}`,
@@ -57,10 +57,11 @@ export const streamChatResponse = async (
 export const generateSlideImage = async (title: string, context: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const visualPrompt = `Generate a professional educational visual for a lecture slide.
+  const visualPrompt = `A high-resolution, professional, and educational 3D render or cinematic photograph for a lecture slide.
   Subject: ${title}
-  Context: ${context}
-  Style: Academic, high-quality render, no text.`;
+  Content Context: ${context}
+  Visual Style: Modern, clean, academic aesthetic, 4K, realistic textures, volumetric lighting. 
+  Requirement: NO TEXT in the image. Scientific and instructional vibes. Highly relatable to the subject matter.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -73,15 +74,12 @@ export const generateSlideImage = async (title: string, context: string): Promis
       }
     });
 
-    const candidate = response.candidates?.[0];
-    if (!candidate) throw new Error("No candidate returned");
-
-    for (const part of candidate.content.parts) {
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data in response");
+    throw new Error("No image data returned");
   } catch (err) {
     console.error("Image generation failed:", err);
     return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
@@ -94,20 +92,29 @@ export const processUnifiedLabContent = async (
 ): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const instruction = `You are a world-class academic content architect. 
-  
-  PROCESS:
-  1. Analyze ${source.url ? 'URL' : 'file'}. Use Search for URLs.
-  2. Language: English.
-  
-  OUTPUT:
-  - TITLE: Course title.
-  - MASTER SUMMARY: Structured markdown.
-  - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
-  - QUIZ: 10 MCQ with explanations.
-  - SLIDES (12 Slides): Bullets, script, image keyword.
+  const instruction = `You are a world-class academic researcher and content architect. 
 
-  JSON FORMAT ONLY.`;
+  CORE RESEARCH PROTOCOL (CRITICAL):
+  1. SOURCE ANALYSIS: Exhaustively analyze the provided ${source.url ? 'URL' : 'file'}. 
+  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve:
+     - The official video transcript or subtitles.
+     - Detailed video descriptions and metadata.
+     - Verified third-party summaries of the content.
+  3. ANTI-HALLUCINATION: Do NOT invent content based on the URL slug or video title alone. If the search tool returns no transcript or content data, report an error: "CONTENT_UNAVAILABLE".
+  4. LANGUAGE: Translate all extracted data into academic English.
+
+  STRICT OUTPUT REQUIREMENTS:
+  - TITLE: Concise, professional course title.
+  - MASTER SUMMARY: 1200+ words of structured markdown. Use H1, H2, H3. Bold key concepts.
+  - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
+  - FLASHCARDS: 15 High-yield flashcards (front/back). Focus on key definitions, formulas, and core concepts.
+  - QUIZ: 10 complex Multiple Choice Questions with high-value explanations.
+  - SLIDES (12 Slides): 
+    * 8+ bullet points per slide.
+    * 250+ word expert script (speaker notes) per slide.
+    * Descriptive keyword for high-res educational imagery.
+
+  JSON FORMAT: Respond ONLY with a valid JSON object matching the responseSchema.`;
 
   const responseSchema = {
     type: Type.OBJECT,
@@ -117,6 +124,17 @@ export const processUnifiedLabContent = async (
         type: Type.OBJECT,
         properties: { content: { type: Type.STRING } },
         required: ["content"]
+      },
+      flashcards: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            front: { type: Type.STRING },
+            back: { type: Type.STRING }
+          },
+          required: ["front", "back"]
+        }
       },
       quiz: {
         type: Type.ARRAY,
@@ -145,14 +163,18 @@ export const processUnifiedLabContent = async (
         }
       }
     },
-    required: ["title", "summary", "quiz", "slides"]
+    required: ["title", "summary", "flashcards", "quiz", "slides"]
   };
 
   const parts: any[] = [];
   if (source.file) {
     parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
   } else if (source.url) {
-    parts.push({ text: `Analyze source: ${source.url}` });
+    parts.push({ 
+      text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. 
+      Start by searching for the transcript: "transcript for ${source.url}" and "detailed summary of ${source.url}". 
+      Ensure the analysis is 100% grounded in the retrieved text. Proceed with full package generation.` 
+    });
   }
   parts.push({ text: instruction });
 
@@ -170,8 +192,12 @@ export const processUnifiedLabContent = async (
   });
 
   try {
-    return JSON.parse(response.text || "{}");
+    const text = response.text || "{}";
+    if (text.includes("CONTENT_UNAVAILABLE")) {
+      throw new Error("The AI could not securely retrieve the video content. This link might be private or restricted.");
+    }
+    return JSON.parse(text);
   } catch (e: any) {
-    throw new Error("Failed to parse AI response.");
+    throw new Error(e.message || "Deep analysis pass failed. Content might be too large or complex for extraction.");
   }
 };

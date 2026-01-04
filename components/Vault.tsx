@@ -11,7 +11,7 @@ interface VaultProps {
 }
 
 const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset, onClearAll }) => {
-  const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'slides'>('all');
+  const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'slides' | 'flashcards'>('all');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
   const filteredAssets = filter === 'all' ? assets : assets.filter(a => a.type === filter);
@@ -40,7 +40,7 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
         </header>
 
         <div className="flex gap-4 mb-10 border-b border-slate-800 pb-6 overflow-x-auto">
-          {(['all', 'summary', 'quiz', 'slides'] as const).map(f => (
+          {(['all', 'summary', 'flashcards', 'quiz', 'slides'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -58,9 +58,15 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
                    asset.type === 'summary' ? 'bg-emerald-600/20 text-emerald-400' :
                    asset.type === 'quiz' ? 'bg-amber-600/20 text-amber-400' :
+                   asset.type === 'flashcards' ? 'bg-violet-600/20 text-violet-400' :
                    'bg-blue-600/20 text-blue-400'
                  }`}>
-                   <i className={`fas ${asset.type === 'summary' ? 'fa-file-text' : asset.type === 'quiz' ? 'fa-tasks' : 'fa-presentation'}`}></i>
+                   <i className={`fas ${
+                     asset.type === 'summary' ? 'fa-file-text' : 
+                     asset.type === 'quiz' ? 'fa-tasks' : 
+                     asset.type === 'flashcards' ? 'fa-clone' :
+                     'fa-presentation'
+                   }`}></i>
                  </div>
                  <div className="flex flex-col items-end">
                     <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest">{new Date(asset.timestamp).toLocaleDateString()}</span>
@@ -89,6 +95,7 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
               <div className={`absolute bottom-0 left-0 h-1 transition-all group-hover:w-full w-4 ${
                    asset.type === 'summary' ? 'bg-emerald-500' :
                    asset.type === 'quiz' ? 'bg-amber-500' :
+                   asset.type === 'flashcards' ? 'bg-violet-500' :
                    'bg-blue-500'
                  }`}></div>
             </div>
