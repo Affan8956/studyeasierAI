@@ -107,7 +107,6 @@ export const processUnifiedLabContent = async (
   - TITLE: Concise, professional course title.
   - MASTER SUMMARY: 1200+ words of structured markdown. Use H1, H2, H3. Bold key concepts.
   - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
-  - FLASHCARDS: 15 High-yield flashcards (front/back). Focus on key definitions, formulas, and core concepts.
   - QUIZ: 10 complex Multiple Choice Questions with high-value explanations.
   - SLIDES (12 Slides): 
     * 8+ bullet points per slide.
@@ -124,17 +123,6 @@ export const processUnifiedLabContent = async (
         type: Type.OBJECT,
         properties: { content: { type: Type.STRING } },
         required: ["content"]
-      },
-      flashcards: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            front: { type: Type.STRING },
-            back: { type: Type.STRING }
-          },
-          required: ["front", "back"]
-        }
       },
       quiz: {
         type: Type.ARRAY,
@@ -163,7 +151,7 @@ export const processUnifiedLabContent = async (
         }
       }
     },
-    required: ["title", "summary", "flashcards", "quiz", "slides"]
+    required: ["title", "summary", "quiz", "slides"]
   };
 
   const parts: any[] = [];

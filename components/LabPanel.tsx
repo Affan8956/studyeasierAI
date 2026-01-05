@@ -6,14 +6,12 @@ import FileUpload from './FileUpload';
 import SummaryView from './SummaryView';
 import QuizView from './QuizView';
 import SlideView from './SlideView';
-import FlashcardView from './FlashcardView';
 
 const LOADING_STATUSES = [
   "Initializing Research Engine...",
   "Fetching Source Transcripts...",
   "Cross-referencing Academic Data...",
   "Generating Mastery Summary...",
-  "Synthesizing Flashcards...",
   "Constructing Knowledge Quiz...",
   "Designing Visual Slides...",
   "Finalizing Synthesis..."
@@ -51,7 +49,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
       if (viewingAsset.type === 'summary') mockPackage.summary = { content: viewingAsset.content };
       if (viewingAsset.type === 'quiz') mockPackage.quiz = viewingAsset.content;
       if (viewingAsset.type === 'slides') mockPackage.slides = viewingAsset.content;
-      if (viewingAsset.type === 'flashcards') mockPackage.flashcards = viewingAsset.content;
       setCurrentPackage(mockPackage);
     }
   }, [viewingAsset]);
@@ -86,12 +83,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
         title: result.title,
         type: 'summary',
         content: result.summary.content,
-        sourceName: sourceName
-      });
-      onSaveAsset({
-        title: result.title,
-        type: 'flashcards',
-        content: result.flashcards,
         sourceName: sourceName
       });
       onSaveAsset({
@@ -135,24 +126,19 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
         </header>
 
         {(currentPackage || loading) && (
-          <div className="flex justify-center gap-4 mb-10 no-print flex-wrap">
-            {(['summary', 'flashcards', 'quiz', 'slides'] as LabTool[]).map((t) => (
+          <div className="flex justify-center gap-4 mb-10 no-print">
+            {(['summary', 'quiz', 'slides'] as LabTool[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setActiveTool(t)}
                 disabled={loading}
-                className={`px-6 py-3 rounded-2xl font-bold transition-all border ${
+                className={`px-8 py-3 rounded-2xl font-bold transition-all border ${
                   activeTool === t 
                   ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
                   : 'bg-[#151515] border-slate-800 text-slate-500 hover:text-slate-300'
                 } disabled:opacity-50`}
               >
-                <i className={`fas mr-2 ${
-                  t === 'summary' ? 'fa-file-alt' : 
-                  t === 'quiz' ? 'fa-tasks' : 
-                  t === 'flashcards' ? 'fa-clone' :
-                  'fa-presentation'
-                }`}></i>
+                <i className={`fas mr-2 ${t === 'summary' ? 'fa-file-alt' : t === 'quiz' ? 'fa-tasks' : 'fa-presentation'}`}></i>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -235,9 +221,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
             
             {activeTool === 'summary' && currentPackage.summary && (
               <SummaryView summary={currentPackage.summary.content} title={currentPackage.title} />
-            )}
-            {activeTool === 'flashcards' && currentPackage.flashcards && (
-              <FlashcardView flashcards={currentPackage.flashcards} />
             )}
             {activeTool === 'quiz' && currentPackage.quiz && (
               <QuizView quiz={currentPackage.quiz} />
