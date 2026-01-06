@@ -2,8 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Message, AIMode } from "../types";
 
-const PRO_MODEL = "gemini-3-pro-preview";
-const IMAGE_MODEL = "gemini-2.5-flash-image";
+// --- CONFIGURATION ---
+const GEMINI_MODEL = "gemini-3-pro-preview";
+const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+
+// Backup Models
+const DEEPSEEK_MODEL = "deepseek-chat"; 
+const OPENAI_MODEL = "gpt-4o";
 
 const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math (equations on their own line).";
 
@@ -15,6 +20,75 @@ const SYSTEM_PROMPTS: Record<AIMode, string> = {
   research: `You are a technical analyst. Provide dense, data-driven explanations with structured evidence. Always respond in English. ${MATH_INSTRUCTION}`
 };
 
+// --- HELPER: OpenAI-Compatible Fetcher (For DeepSeek/OpenAI/Groq etc) ---
+const fetchOpenAICompatible = async (
+  apiKey: string,
+  baseUrl: string,
+  modelName: string,
+  messages: any[],
+  temperature: number,
+  onChunk?: (text: string) => void,
+  jsonMode: boolean = false
+): Promise<string> => {
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: messages,
+        temperature: temperature,
+        stream: !!onChunk,
+        response_format: jsonMode ? { type: "json_object" } : undefined
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Backup API Error (${modelName}): ${err}`);
+    }
+
+    // Handle Streaming
+    if (onChunk && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ") && line !== "data: [DONE]") {
+            try {
+              const json = JSON.parse(line.replace("data: ", ""));
+              const content = json.choices[0]?.delta?.content || "";
+              if (content) {
+                fullText += content;
+                onChunk(fullText);
+              }
+            } catch (e) { /* ignore parse errors on partial chunks */ }
+          }
+        }
+      }
+      return fullText;
+    } 
+    // Handle Non-Streaming
+    else {
+      const json = await response.json();
+      return json.choices[0]?.message?.content || "";
+    }
+  } catch (error: any) {
+    throw new Error(error.message || "Backup Provider Failed");
+  }
+};
+
 // --- CHAT STREAMING ---
 export const streamChatResponse = async (
   history: Message[],
@@ -22,15 +96,17 @@ export const streamChatResponse = async (
   mode: AIMode,
   onChunk: (text: string) => void
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // 1. Convert History for Gemini
   const contents = history.map(msg => ({
     role: msg.role,
     parts: [{ text: msg.content }]
   })).concat([{ role: 'user', parts: [{ text: currentMessage }] }]);
 
+  // --- ATTEMPT 1: GOOGLE GEMINI ---
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const stream = await ai.models.generateContentStream({
-      model: PRO_MODEL,
+      model: GEMINI_MODEL,
       contents,
       config: {
         systemInstruction: SYSTEM_PROMPTS[mode],
@@ -49,12 +125,56 @@ export const streamChatResponse = async (
     }
     return fullText;
   } catch (error: any) {
-    throw new Error(error.message || "AI Engine Error");
+    console.warn("Gemini Failed. Attempting Backups...", error);
+    
+    // Construct Standard Messages for OpenAI/DeepSeek
+    const standardMessages = [
+      { role: "system", content: SYSTEM_PROMPTS[mode] },
+      ...history.map(m => ({ role: m.role, content: m.content })),
+      { role: "user", content: currentMessage }
+    ];
+
+    // --- ATTEMPT 2: DEEPSEEK ---
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        onChunk("⚠️ Switching to DeepSeek v3 (Backup)... \n\n");
+        return await fetchOpenAICompatible(
+          process.env.DEEPSEEK_API_KEY,
+          "https://api.deepseek.com",
+          DEEPSEEK_MODEL,
+          standardMessages,
+          0.7,
+          onChunk
+        );
+      } catch (dsError) {
+        console.warn("DeepSeek Failed:", dsError);
+      }
+    }
+
+    // --- ATTEMPT 3: OPENAI ---
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        onChunk("⚠️ Switching to OpenAI GPT-4o (Backup)... \n\n");
+        return await fetchOpenAICompatible(
+          process.env.OPENAI_API_KEY,
+          "https://api.openai.com/v1",
+          OPENAI_MODEL,
+          standardMessages,
+          0.7,
+          onChunk
+        );
+      } catch (oaError) {
+        console.warn("OpenAI Failed:", oaError);
+      }
+    }
+
+    throw new Error("All AI providers failed. Please try again later.");
   }
 };
 
 // --- SLIDE IMAGE GENERATION ---
 export const generateSlideImage = async (title: string, context: string): Promise<string> => {
+  // We strictly use Gemini for Images as text models can't generate images.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const visualPrompt = `A high-resolution, professional, and educational 3D render or cinematic photograph for a lecture slide.
@@ -65,12 +185,10 @@ export const generateSlideImage = async (title: string, context: string): Promis
 
   try {
     const response = await ai.models.generateContent({
-      model: IMAGE_MODEL,
+      model: GEMINI_IMAGE_MODEL,
       contents: { parts: [{ text: visualPrompt }] },
       config: {
-        imageConfig: {
-          aspectRatio: "16:9"
-        }
+        imageConfig: { aspectRatio: "16:9" }
       }
     });
 
@@ -79,7 +197,7 @@ export const generateSlideImage = async (title: string, context: string): Promis
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data returned");
+    return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
   } catch (err) {
     console.error("Image generation failed:", err);
     return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
@@ -90,17 +208,12 @@ export const generateSlideImage = async (title: string, context: string): Promis
 export const processUnifiedLabContent = async (
   source: { file?: { base64: string; mimeType: string }; url?: string }
 ): Promise<any> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
   const instruction = `You are a world-class academic researcher and content architect. 
 
   CORE RESEARCH PROTOCOL (CRITICAL):
   1. SOURCE ANALYSIS: Exhaustively analyze the provided ${source.url ? 'URL' : 'file'}. 
-  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve:
-     - The official video transcript or subtitles.
-     - Detailed video descriptions and metadata.
-     - Verified third-party summaries of the content.
-  3. ANTI-HALLUCINATION: Do NOT invent content based on the URL slug or video title alone. If the search tool returns no transcript or content data, report an error: "CONTENT_UNAVAILABLE".
+  2. GROUNDING (URLs): If a URL is provided, YOU MUST USE GOOGLE SEARCH to retrieve verified data.
+  3. ANTI-HALLUCINATION: Do NOT invent content.
   4. LANGUAGE: Translate all extracted data into academic English.
 
   STRICT OUTPUT REQUIREMENTS:
@@ -113,7 +226,7 @@ export const processUnifiedLabContent = async (
     * 250+ word expert script (speaker notes) per slide.
     * Descriptive keyword for high-res educational imagery.
 
-  JSON FORMAT: Respond ONLY with a valid JSON object matching the responseSchema.`;
+  JSON FORMAT: Respond ONLY with a valid JSON object matching the requested schema.`;
 
   const responseSchema = {
     type: Type.OBJECT,
@@ -154,38 +267,87 @@ export const processUnifiedLabContent = async (
     required: ["title", "summary", "quiz", "slides"]
   };
 
-  const parts: any[] = [];
-  if (source.file) {
-    parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
-  } else if (source.url) {
-    parts.push({ 
-      text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. 
-      Start by searching for the transcript: "transcript for ${source.url}" and "detailed summary of ${source.url}". 
-      Ensure the analysis is 100% grounded in the retrieved text. Proceed with full package generation.` 
-    });
-  }
-  parts.push({ text: instruction });
-
-  const response = await ai.models.generateContent({
-    model: PRO_MODEL,
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema,
-      tools: source.url ? [{ googleSearch: {} }] : [],
-      thinkingConfig: { thinkingBudget: 25000 },
-      maxOutputTokens: 30000,
-      temperature: 0.1
-    }
-  });
-
+  // --- ATTEMPT 1: GOOGLE GEMINI ---
   try {
-    const text = response.text || "{}";
-    if (text.includes("CONTENT_UNAVAILABLE")) {
-      throw new Error("The AI could not securely retrieve the video content. This link might be private or restricted.");
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const parts: any[] = [];
+    if (source.file) {
+      parts.push({ inlineData: { data: source.file.base64, mimeType: source.file.mimeType } });
+    } else if (source.url) {
+      parts.push({ 
+        text: `DEEP RESEARCH TASK: Retrieve and analyze the full content of this source: ${source.url}. 
+        Start by searching for the transcript. Ensure the analysis is 100% grounded in the retrieved text.` 
+      });
     }
+    parts.push({ text: instruction });
+
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema,
+        tools: source.url ? [{ googleSearch: {} }] : [],
+        thinkingConfig: { thinkingBudget: 25000 },
+        maxOutputTokens: 30000,
+        temperature: 0.1
+      }
+    });
+
+    const text = response.text || "{}";
+    if (text.includes("CONTENT_UNAVAILABLE")) throw new Error("Content Unavailable");
     return JSON.parse(text);
-  } catch (e: any) {
-    throw new Error(e.message || "Deep analysis pass failed. Content might be too large or complex for extraction.");
+
+  } catch (geminiError: any) {
+    console.warn("Gemini Lab Processing Failed. Attempting Backups...", geminiError);
+
+    // If source is a file/image, backups (DeepSeek/OpenAI) often require specific handling.
+    // For this generic backup, we will only fallback if it's text/url based or if the user provided text.
+    // NOTE: Sending raw PDFs/Audio to OpenAI/DeepSeek API directly via fetch is complex.
+    // We will attempt a text-only fallback or fail if it requires file processing not supported by the simple backup fetcher.
+    
+    if (source.file) {
+       throw new Error("Gemini File Analysis failed. Backup providers do not currently support direct file uploads in this mode. Please try again.");
+    }
+
+    const backupPrompt = `${instruction} \n\n RESPONSE MUST BE RAW JSON.`;
+    const messages = [
+        { role: 'system', content: "You are a JSON-only API. Output strict JSON." },
+        { role: 'user', content: source.url ? `Analyze this URL: ${source.url}. ${backupPrompt}` : backupPrompt }
+    ];
+
+    // --- ATTEMPT 2: DEEPSEEK ---
+    if (process.env.DEEPSEEK_API_KEY) {
+        try {
+            const raw = await fetchOpenAICompatible(
+                process.env.DEEPSEEK_API_KEY, 
+                "https://api.deepseek.com", 
+                DEEPSEEK_MODEL, 
+                messages, 
+                0.1, 
+                undefined, 
+                true // json mode
+            );
+            return JSON.parse(raw);
+        } catch (e) { console.warn("DeepSeek Lab Failed", e); }
+    }
+
+    // --- ATTEMPT 3: OPENAI ---
+    if (process.env.OPENAI_API_KEY) {
+        try {
+            const raw = await fetchOpenAICompatible(
+                process.env.OPENAI_API_KEY, 
+                "https://api.openai.com/v1", 
+                OPENAI_MODEL, 
+                messages, 
+                0.1, 
+                undefined, 
+                true // json mode
+            );
+            return JSON.parse(raw);
+        } catch (e) { console.warn("OpenAI Lab Failed", e); }
+    }
+
+    throw new Error(geminiError.message || "All AI providers failed processing.");
   }
 };
