@@ -51,6 +51,7 @@ export const saveChat = async (userId: string, chat: ChatSession) => {
         user_id: userId,
         title: chat.title,
         mode: chat.mode,
+        messages: chat.messages, // Now explicitly saving messages
         updated_at: new Date().toISOString()
       });
     if (error) handleSupabaseError(error, 'chats');
@@ -68,7 +69,7 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
     const { data, error } = await withTimeout(
       supabase
         .from('chats')
-        .select('*, messages(*)')
+        .select('*') // Removed messages(*) relation, assuming JSONB column
         .eq('user_id', userId)
         .order('updated_at', { ascending: false }) as any,
       2500,
@@ -86,12 +87,13 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
         userId: chat.user_id,
         title: chat.title,
         mode: chat.mode,
-        messages: (chat.messages || []).map((m: any) => ({
+        // Handle messages whether they are an array (JSONB) or null
+        messages: Array.isArray(chat.messages) ? chat.messages.map((m: any) => ({
           id: m.id,
           role: m.role,
           content: m.content,
-          timestamp: new Date(m.created_at).getTime()
-        })),
+          timestamp: m.timestamp || new Date(m.created_at || Date.now()).getTime()
+        })) : [],
         createdAt: new Date(chat.created_at).getTime(),
         updatedAt: new Date(chat.updated_at).getTime()
       }));
@@ -122,7 +124,13 @@ export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatS
     try {
       const { error } = await supabase
         .from('chats')
-        .insert([{ id: newChat.id, user_id: userId, mode, title: 'New Discussion' }]);
+        .insert([{ 
+          id: newChat.id, 
+          user_id: userId, 
+          mode, 
+          title: 'New Discussion',
+          messages: [] 
+        }]);
       
       if (error) handleSupabaseError(error, 'chats');
     } catch (err: any) {
@@ -199,7 +207,7 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
         userId: asset.user_id,
         title: asset.title,
         type: asset.type,
-        content: asset.content,
+        content: asset.content, // Content is expected to be JSONB
         sourceName: asset.source_name,
         timestamp: new Date(asset.created_at).getTime()
       }));

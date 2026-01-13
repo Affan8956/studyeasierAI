@@ -12,78 +12,83 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
 
   const handleNext = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev + 1) % flashcards.length);
+    setTimeout(() => setCurrentIndex((prev) => (prev + 1) % flashcards.length), 200);
   };
 
   const handlePrev = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length);
+    setTimeout(() => setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length), 200);
   };
 
-  if (flashcards.length === 0) return <div>No flashcards generated.</div>;
+  if (!flashcards || flashcards.length === 0) return <div className="text-center p-8 text-slate-500">No flashcards available.</div>;
 
   const currentCard = flashcards[currentIndex];
 
   return (
-    <div className="flex flex-col items-center py-12 px-4">
-      <div className="w-full max-w-md h-80 perspective-1000">
+    <div className="flex flex-col items-center py-12 px-4 w-full">
+      {/* 3D Card Container */}
+      <div className="w-full max-w-xl h-96 perspective-1000 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
         <div
-          onClick={() => setIsFlipped(!isFlipped)}
-          className={`relative w-full h-full transition-all duration-500 transform-style-3d cursor-pointer ${
+          className={`relative w-full h-full transition-transform duration-700 transform-style-3d shadow-2xl rounded-3xl ${
             isFlipped ? 'rotate-y-180' : ''
           }`}
         >
-          {/* Front */}
-          <div className="absolute inset-0 backface-hidden bg-white rounded-3xl shadow-xl border-4 border-indigo-100 flex items-center justify-center p-8 text-center">
-            <div className="flex flex-col items-center">
-              <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4">Question</span>
-              <p className="text-xl md:text-2xl font-semibold text-gray-800">{currentCard.front}</p>
-              <div className="mt-8 text-gray-400 flex items-center gap-2">
-                 <i className="fas fa-sync-alt"></i>
-                 <span className="text-sm">Click to flip</span>
-              </div>
-            </div>
+          {/* Front Face (Question) */}
+          <div className="absolute inset-0 backface-hidden bg-white rounded-3xl flex flex-col items-center justify-center p-10 text-center border border-slate-200">
+             <div className="mb-6 w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
+                <i className="fas fa-question text-xl"></i>
+             </div>
+             <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.2em] mb-4">Question</h3>
+             <p className="text-2xl font-bold text-slate-800 leading-snug">{currentCard.front}</p>
+             
+             <div className="absolute bottom-6 text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                <i className="fas fa-sync-alt"></i> Tap to Reveal
+             </div>
           </div>
           
-          {/* Back */}
-          <div className="absolute inset-0 backface-hidden bg-indigo-600 rounded-3xl shadow-xl rotate-y-180 flex items-center justify-center p-8 text-center">
-            <div className="flex flex-col items-center">
-              <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest mb-4">Answer</span>
-              <p className="text-xl md:text-2xl font-medium text-white">{currentCard.back}</p>
-              <div className="mt-8 text-indigo-200 flex items-center gap-2">
-                 <i className="fas fa-sync-alt"></i>
-                 <span className="text-sm">Click to flip</span>
-              </div>
-            </div>
+          {/* Back Face (Answer) */}
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-indigo-600 rounded-3xl flex flex-col items-center justify-center p-10 text-center border border-indigo-500">
+             <div className="mb-6 w-12 h-12 bg-white/10 text-white rounded-xl flex items-center justify-center">
+                <i className="fas fa-lightbulb text-xl"></i>
+             </div>
+             <h3 className="text-xs font-black text-indigo-200 uppercase tracking-[0.2em] mb-4">Answer</h3>
+             <p className="text-2xl font-medium text-white leading-relaxed">{currentCard.back}</p>
+
+             <div className="absolute bottom-6 text-indigo-200 text-xs font-bold uppercase tracking-widest flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                <i className="fas fa-sync-alt"></i> Tap to Flip Back
+             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between w-full max-w-md mt-12 px-4">
+      {/* Controls */}
+      <div className="flex items-center justify-between w-full max-w-xl mt-10">
         <button
-          onClick={handlePrev}
-          className="p-4 rounded-full bg-white shadow-md hover:bg-gray-50 text-indigo-600 transition-colors"
+          onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+          className="p-4 rounded-2xl bg-[#151515] text-slate-300 hover:text-white hover:bg-slate-800 transition-all border border-slate-800"
+          title="Previous Card"
         >
-          <i className="fas fa-chevron-left text-xl"></i>
+          <i className="fas fa-arrow-left"></i>
         </button>
-        <span className="text-gray-500 font-medium">
-          Card {currentIndex + 1} of {flashcards.length}
-        </span>
-        <button
-          onClick={handleNext}
-          className="p-4 rounded-full bg-white shadow-md hover:bg-gray-50 text-indigo-600 transition-colors"
-        >
-          <i className="fas fa-chevron-right text-xl"></i>
-        </button>
-      </div>
-
-      <div className="mt-12 w-full max-w-md">
-        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-indigo-500 transition-all duration-300" 
-            style={{ width: `${((currentIndex + 1) / flashcards.length) * 100}%` }}
-          />
+        
+        <div className="flex flex-col items-center gap-2">
+           <span className="text-slate-400 font-black text-xs uppercase tracking-widest">
+             Card {currentIndex + 1} / {flashcards.length}
+           </span>
+           <div className="flex gap-1">
+              {flashcards.map((_, i) => (
+                <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-8 bg-indigo-500' : 'w-1.5 bg-slate-800'}`}></div>
+              ))}
+           </div>
         </div>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); handleNext(); }}
+          className="p-4 rounded-2xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
+          title="Next Card"
+        >
+          <i className="fas fa-arrow-right"></i>
+        </button>
       </div>
     </div>
   );

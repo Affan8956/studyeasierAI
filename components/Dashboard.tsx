@@ -16,6 +16,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, on
   const displayName = user?.name || 'Student';
   const firstName = displayName.split(' ')[0] || 'Student';
 
+  const getAssetStyle = (type: string) => {
+    switch(type) {
+      case 'summary': return { icon: 'fa-file-text', style: 'bg-emerald-600/10 text-emerald-400' };
+      case 'quiz': return { icon: 'fa-tasks', style: 'bg-amber-600/10 text-amber-400' };
+      case 'flashcards': return { icon: 'fa-layer-group', style: 'bg-violet-600/10 text-violet-400' };
+      case 'slides': return { icon: 'fa-presentation', style: 'bg-blue-600/10 text-blue-400' };
+      default: return { icon: 'fa-file', style: 'bg-slate-600/10 text-slate-400' };
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
       <div className="max-w-6xl mx-auto">
@@ -114,21 +124,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, on
                  <div className="h-[1px] flex-1 mx-6 bg-slate-900"></div>
               </div>
               <div className="space-y-4">
-                 {assets.length > 0 ? assets.slice(0, 4).map(asset => (
-                   <div 
-                     key={asset.id} 
-                     onClick={() => onOpenAsset(asset)}
-                     className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-emerald-500/30 transition-all cursor-pointer hover:bg-white/5"
-                   >
-                      <div className="flex items-center gap-5">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${asset.type === 'summary' ? 'bg-emerald-600/10 text-emerald-400' : 'bg-amber-600/10 text-amber-400'}`}>
-                           <i className={`fas text-xs ${asset.type === 'summary' ? 'fa-file-text' : 'fa-tasks'}`}></i>
+                 {assets.length > 0 ? assets.slice(0, 4).map(asset => {
+                   const { icon, style } = getAssetStyle(asset.type);
+                   return (
+                     <div 
+                       key={asset.id} 
+                       onClick={() => onOpenAsset(asset)}
+                       className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-emerald-500/30 transition-all cursor-pointer hover:bg-white/5"
+                     >
+                        <div className="flex items-center gap-5">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${style}`}>
+                             <i className={`fas text-xs ${icon}`}></i>
+                          </div>
+                          <span className="font-bold text-sm truncate max-w-[200px] text-slate-200">{asset.title}</span>
                         </div>
-                        <span className="font-bold text-sm truncate max-w-[200px] text-slate-200">{asset.title}</span>
-                      </div>
-                      <span className="text-[9px] text-slate-600 uppercase font-black tracking-widest">{asset.type}</span>
-                   </div>
-                 )) : (
+                        <span className="text-[9px] text-slate-600 uppercase font-black tracking-widest">{asset.type}</span>
+                     </div>
+                   );
+                 }) : (
                    <div className="py-12 text-center border-2 border-dashed border-slate-900 rounded-[2rem]">
                       <p className="text-slate-700 text-xs font-black uppercase tracking-widest">No Assets Generated</p>
                    </div>

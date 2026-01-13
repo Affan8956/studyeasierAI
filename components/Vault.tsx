@@ -11,20 +11,67 @@ interface VaultProps {
 }
 
 const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset, onClearAll }) => {
-  const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'slides'>('all');
+  const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'flashcards' | 'slides' | 'research'>('all');
+  const [search, setSearch] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
-  const filteredAssets = filter === 'all' ? assets : assets.filter(a => a.type === filter);
+  const filteredAssets = assets.filter(asset => {
+    const matchesFilter = filter === 'all' ? true : asset.type === filter;
+    const matchesSearch = asset.title.toLowerCase().includes(search.toLowerCase()) || 
+                          asset.sourceName.toLowerCase().includes(search.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   const handleClearConfirm = () => {
     onClearAll();
     setIsConfirmingClear(false);
   };
 
+  const getAssetStyle = (type: string) => {
+    switch(type) {
+      case 'summary': return { 
+        icon: 'fa-file-text', 
+        bg: 'bg-emerald-600/20', 
+        text: 'text-emerald-400', 
+        accent: 'bg-emerald-500' 
+      };
+      case 'quiz': return { 
+        icon: 'fa-tasks', 
+        bg: 'bg-amber-600/20', 
+        text: 'text-amber-400', 
+        accent: 'bg-amber-500' 
+      };
+      case 'flashcards': return { 
+        icon: 'fa-layer-group', 
+        bg: 'bg-violet-600/20', 
+        text: 'text-violet-400', 
+        accent: 'bg-violet-500' 
+      };
+      case 'slides': return { 
+        icon: 'fa-presentation', 
+        bg: 'bg-blue-600/20', 
+        text: 'text-blue-400', 
+        accent: 'bg-blue-500' 
+      };
+      case 'research': return { 
+        icon: 'fa-globe-americas', 
+        bg: 'bg-cyan-600/20', 
+        text: 'text-cyan-400', 
+        accent: 'bg-cyan-500' 
+      };
+      default: return { 
+        icon: 'fa-file', 
+        bg: 'bg-slate-600/20', 
+        text: 'text-slate-400', 
+        accent: 'bg-slate-500' 
+      };
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-10 flex items-center justify-between">
+        <header className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-4xl font-black mb-2 tracking-tight">The Vault</h1>
             <p className="text-slate-500">Your historical workspace data and generated intelligence.</p>
@@ -39,68 +86,78 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
           )}
         </header>
 
-        <div className="flex gap-4 mb-10 border-b border-slate-800 pb-6 overflow-x-auto">
-          {(['all', 'summary', 'quiz', 'slides'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${filter === f ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-slate-500 hover:text-white'}`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+        <div className="flex flex-col md:flex-row gap-6 mb-10 border-b border-slate-800 pb-8">
+           {/* Search Bar */}
+           <div className="relative w-full md:w-80">
+             <input 
+               type="text" 
+               placeholder="Search assets by title or source..." 
+               value={search}
+               onChange={(e) => setSearch(e.target.value)}
+               className="w-full bg-[#151515] border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-200 outline-none focus:border-indigo-600 transition-colors shadow-lg"
+             />
+             <i className="fas fa-search absolute left-4 top-4 text-slate-500"></i>
+           </div>
+
+           {/* Filter Tabs */}
+           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar flex-1">
+            {(['all', 'summary', 'quiz', 'flashcards', 'slides', 'research'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === f ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#151515] text-slate-500 hover:text-white hover:bg-slate-800'}`}
+              >
+                {f}
+              </button>
+            ))}
+           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAssets.map(asset => (
-            <div key={asset.id} className="relative p-6 bg-[#121212] border border-slate-800 rounded-3xl hover:border-slate-600 transition-all group flex flex-col h-full overflow-hidden">
-              <div className="flex justify-between items-start mb-6">
-                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                   asset.type === 'summary' ? 'bg-emerald-600/20 text-emerald-400' :
-                   asset.type === 'quiz' ? 'bg-amber-600/20 text-amber-400' :
-                   'bg-blue-600/20 text-blue-400'
-                 }`}>
-                   <i className={`fas ${asset.type === 'summary' ? 'fa-file-text' : asset.type === 'quiz' ? 'fa-tasks' : 'fa-presentation'}`}></i>
-                 </div>
-                 <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest">{new Date(asset.timestamp).toLocaleDateString()}</span>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset.id); }}
-                      className="mt-2 text-slate-700 hover:text-rose-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
-                      title="Delete Asset"
-                    >
-                      <i className="fas fa-trash-alt text-xs"></i>
-                    </button>
-                 </div>
-              </div>
-              <h3 className="text-lg font-bold mb-2 truncate text-slate-100">{asset.title}</h3>
-              <p className="text-slate-500 text-sm mb-6 truncate italic">Source: {asset.sourceName}</p>
-              
-              <div className="mt-auto">
-                <button 
-                  onClick={() => onViewAsset(asset)}
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                >
-                  Open Asset <i className="fas fa-external-link-alt text-[10px]"></i>
-                </button>
-              </div>
+          {filteredAssets.map(asset => {
+            const style = getAssetStyle(asset.type);
+            return (
+              <div key={asset.id} className="relative p-6 bg-[#121212] border border-slate-800 rounded-3xl hover:border-slate-600 transition-all group flex flex-col h-full overflow-hidden animate-fadeIn">
+                <div className="flex justify-between items-start mb-6">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${style.bg} ${style.text}`}>
+                    <i className={`fas ${style.icon}`}></i>
+                  </div>
+                  <div className="flex flex-col items-end">
+                      <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest">{new Date(asset.timestamp).toLocaleDateString()}</span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset.id); }}
+                        className="mt-2 text-slate-700 hover:text-rose-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                        title="Delete Asset"
+                      >
+                        <i className="fas fa-trash-alt text-xs"></i>
+                      </button>
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold mb-2 truncate text-slate-100" title={asset.title}>{asset.title}</h3>
+                <p className="text-slate-500 text-sm mb-6 truncate italic">Source: {asset.sourceName}</p>
+                
+                <div className="mt-auto">
+                  <button 
+                    onClick={() => onViewAsset(asset)}
+                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                    Open Asset <i className="fas fa-external-link-alt text-[10px]"></i>
+                  </button>
+                </div>
 
-              {/* Decorative accent for asset type */}
-              <div className={`absolute bottom-0 left-0 h-1 transition-all group-hover:w-full w-4 ${
-                   asset.type === 'summary' ? 'bg-emerald-500' :
-                   asset.type === 'quiz' ? 'bg-amber-500' :
-                   'bg-blue-500'
-                 }`}></div>
-            </div>
-          ))}
+                {/* Decorative accent for asset type */}
+                <div className={`absolute bottom-0 left-0 h-1 transition-all group-hover:w-full w-4 ${style.accent}`}></div>
+              </div>
+            );
+          })}
 
           {filteredAssets.length === 0 && (
             <div className="col-span-full py-24 text-center">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-800/50 rounded-full mb-6">
                 <i className="fas fa-ghost text-3xl text-slate-600"></i>
               </div>
-              <p className="text-slate-500 font-medium">No intelligence found in this category.</p>
-              <p className="text-slate-700 text-sm">Upload materials to the Knowledge Lab to begin.</p>
+              <p className="text-slate-500 font-medium">No intelligence found matching criteria.</p>
+              <p className="text-slate-700 text-sm mt-2">Generate new content in the Lab or Deep Research.</p>
             </div>
           )}
         </div>

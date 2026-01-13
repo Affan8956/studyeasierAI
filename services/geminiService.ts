@@ -1,8 +1,9 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Message, AIMode } from "../types";
+import { Message, AIMode, GroundingChunk } from "../types";
 
 const PRO_MODEL = "gemini-3-pro-preview";
+const FAST_MODEL = "gemini-3-flash-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 
 const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math (equations on their own line).";
@@ -11,7 +12,7 @@ const SYSTEM_PROMPTS: Record<AIMode, string> = {
   study: `You are an expert academic tutor. Break down complex topics into simple analogies. Use markdown headers. Always respond in English. Provide deep, structured reasoning. ${MATH_INSTRUCTION}`,
   coding: "You are a senior software engineer. Provide high-quality, documented code blocks. Be concise. Always respond in English.",
   writing: "You are a creative editor. Help users draft prose. Focus on tone, style, and structure. Always respond in English.",
-  tutor: `You are a Socratic teacher. Guide users with questions instead of giving direct answers. Always respond in English. ${MATH_INSTRUCTION}`,
+  tutor: `You are a Socratic teacher. Guide users with questions instead of giving direct answers. Encourage critical thinking. Always respond in English. ${MATH_INSTRUCTION}`,
   research: `You are a technical analyst. Provide dense, data-driven explanations with structured evidence. Always respond in English. ${MATH_INSTRUCTION}`
 };
 
@@ -25,21 +26,20 @@ const getApiKey = (): string => {
       return import.meta.env.VITE_API_KEY;
     }
   } catch (error) {
-    // Silently fail if import.meta is not defined (e.g. in some testing environments)
+    // Silently fail if import.meta is not defined
   }
 
-  // 2. Check for standard process.env (Node.js/Webpack/System)
+  // 2. Check for standard process.env
   try {
     // @ts-ignore
     if (typeof process !== 'undefined' && process.env) {
       // @ts-ignore
-      // Check standard API_KEY first, then VITE_ prefixed one as fallback in process.env
       if (process.env.API_KEY) return process.env.API_KEY;
       // @ts-ignore
       if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
     }
   } catch (error) {
-     // Silently fail if process is not defined
+     // Silently fail
   }
   
   return '';
@@ -61,13 +61,17 @@ export const streamChatResponse = async (
     parts: [{ text: msg.content }]
   })).concat([{ role: 'user', parts: [{ text: currentMessage }] }]);
 
+  // Tutor mode gets a specific thinking budget of 2048 as requested.
+  // Other modes use a higher budget for deep reasoning.
+  const thinkingBudget = mode === 'tutor' ? 2048 : 15000;
+
   try {
     const stream = await ai.models.generateContentStream({
       model: PRO_MODEL,
       contents,
       config: {
         systemInstruction: SYSTEM_PROMPTS[mode],
-        thinkingConfig: { thinkingBudget: 15000 },
+        thinkingConfig: { thinkingBudget },
         maxOutputTokens: 30000,
         temperature: 0.7
       }
@@ -83,6 +87,45 @@ export const streamChatResponse = async (
     return fullText;
   } catch (error: any) {
     throw new Error(error.message || "AI Engine Error");
+  }
+};
+
+// --- DEEP RESEARCH ---
+export const performDeepResearch = async (query: string): Promise<{ text: string; groundingChunks: GroundingChunk[] }> => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key not found.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: FAST_MODEL, // gemini-3-flash-preview
+      contents: query,
+      config: {
+        tools: [{ googleSearch: {} }],
+        systemInstruction: `You are a Deep Research Agent. 
+        1. Use Google Search to find the latest, most accurate information.
+        2. Compile the answer into a comprehensive Markdown report with H1, H2, and bold key terms.
+        3. Be objective and factual.`,
+      },
+    });
+
+    const text = response.text || "No results found.";
+    
+    // Extract grounding metadata for the "Source Verification Nodes"
+    const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+
+    // Map SDK types to App types to fix incompatibility
+    const groundingChunks: GroundingChunk[] = rawChunks.map(chunk => ({
+      web: chunk.web ? {
+        uri: chunk.web.uri || '',
+        title: chunk.web.title || ''
+      } : undefined
+    }));
+
+    return { text, groundingChunks };
+  } catch (error: any) {
+    throw new Error(error.message || "Deep Research Failed");
   }
 };
 
@@ -147,6 +190,7 @@ export const processUnifiedLabContent = async (
   - MASTER SUMMARY: 1200+ words of structured markdown. Use H1, H2, H3. Bold key concepts.
   - MATHEMATICAL NOTATION: ${MATH_INSTRUCTION}
   - QUIZ: 10 complex Multiple Choice Questions with high-value explanations.
+  - FLASHCARDS: 15 high-quality flashcards for active recall (Front: Concept/Question, Back: Detailed Answer).
   - SLIDES (12 Slides): 
     * 8+ bullet points per slide.
     * 250+ word expert script (speaker notes) per slide.
@@ -176,6 +220,17 @@ export const processUnifiedLabContent = async (
           required: ["question", "options", "correctAnswer", "explanation"]
         }
       },
+      flashcards: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            front: { type: Type.STRING },
+            back: { type: Type.STRING }
+          },
+          required: ["front", "back"]
+        }
+      },
       slides: {
         type: Type.ARRAY,
         items: {
@@ -190,7 +245,7 @@ export const processUnifiedLabContent = async (
         }
       }
     },
-    required: ["title", "summary", "quiz", "slides"]
+    required: ["title", "summary", "quiz", "flashcards", "slides"]
   };
 
   const parts: any[] = [];

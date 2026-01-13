@@ -10,6 +10,7 @@ import ChatInterface from './components/ChatInterface';
 import Dashboard from './components/Dashboard';
 import LabPanel from './components/LabPanel';
 import Vault from './components/Vault';
+import ResearchView from './components/ResearchView';
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, token: null, isAuthenticated: false });
@@ -79,6 +80,23 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Logic to handle "AI Tutor" button from sidebar
+  useEffect(() => {
+    const handleTutorView = async () => {
+      if (view === 'tutor' && auth.user && !isInitializingChat) {
+        // Find latest active tutor chat
+        const tutorChat = chats.find(c => c.mode === 'tutor');
+        if (tutorChat) {
+          setActiveChatId(tutorChat.id);
+        } else {
+          // Create new one if none exists
+          await handleNewChat('tutor');
+        }
+      }
+    };
+    handleTutorView();
+  }, [view]); // Run when view changes
+
   const handleLogout = async () => {
     await logout();
     setViewingAsset(null);
@@ -91,7 +109,10 @@ const App: React.FC = () => {
       const chat = await createNewChat(auth.user.id, mode);
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat.id);
-      setView('chat');
+      // For tutor mode, we stay in 'tutor' view state but use ChatInterface
+      if (mode !== 'tutor') {
+        setView('chat');
+      }
     } catch (e: any) {
       console.error("Failed to create new chat:", e.message || e);
     } finally {
@@ -129,7 +150,11 @@ const App: React.FC = () => {
 
   const handleOpenAsset = (asset: LabAsset) => {
     setViewingAsset(asset);
-    setView('lab');
+    if (asset.type === 'research') {
+      setView('research');
+    } else {
+      setView('lab');
+    }
   };
 
   if (isAppLoading) {
@@ -154,7 +179,12 @@ const App: React.FC = () => {
     <div className="flex h-screen bg-[#0a0a0a] text-slate-100 overflow-hidden">
       <Sidebar 
         view={view} 
-        setView={(v) => { setView(v); if(v !== 'lab') setViewingAsset(null); }} 
+        setView={(v) => { 
+          setView(v); 
+          if(v !== 'lab' && v !== 'research') setViewingAsset(null);
+          // If switching away from tutor/chat, clear active ID to avoid confusion
+          if(v !== 'chat' && v !== 'tutor') setActiveChatId(null); 
+        }} 
         chats={chats}
         activeChatId={activeChatId}
         onSelectChat={(id) => { setActiveChatId(id); setView('chat'); }}
@@ -177,13 +207,22 @@ const App: React.FC = () => {
           />
         )}
 
-        {view === 'chat' && (
+        {(view === 'chat' || view === 'tutor') && (
           <ChatInterface 
             chat={chats.find(c => c.id === activeChatId) || null}
             onUpdateChat={async (updated) => {
                await saveChat(auth.user!.id, updated);
                setChats(prev => prev.map(c => c.id === updated.id ? updated : c));
             }}
+          />
+        )}
+
+        {view === 'research' && (
+          <ResearchView 
+            onSaveAsset={handleSaveAsset}
+            savedResearch={assets}
+            viewingAsset={viewingAsset?.type === 'research' ? viewingAsset : null}
+            onLoadResearch={(asset) => setViewingAsset(asset)}
           />
         )}
 

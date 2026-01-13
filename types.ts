@@ -1,7 +1,7 @@
 
 export type AIMode = 'study' | 'coding' | 'writing' | 'tutor' | 'research';
-export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings';
-export type LabTool = 'summary' | 'quiz' | 'slides';
+export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor';
+export type LabTool = 'summary' | 'quiz' | 'slides' | 'flashcards' | 'research';
 
 export interface User {
   id: string;
@@ -63,4 +63,11 @@ export interface QuizQuestion {
   options: string[];
   correctAnswer: number;
   explanation: string;
+}
+
+export interface GroundingChunk {
+  web?: {
+    uri: string;
+    title: string;
+  };
 }
