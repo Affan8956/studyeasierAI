@@ -1,7 +1,8 @@
 
 export type AIMode = 'study' | 'coding' | 'writing' | 'tutor' | 'research';
-export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor' | 'vision';
+export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor' | 'vision' | 'about';
 export type LabTool = 'summary' | 'quiz' | 'slides' | 'flashcards' | 'research' | 'image_analysis';
+export type AppTheme = 'default' | 'light' | 'midnight' | 'forest';
 
 export interface User {
   id: string;

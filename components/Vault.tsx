@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
-import { LabAsset, ChatSession } from '../types';
+import React, { useState, useEffect } from 'react';
+import { LabAsset, ChatSession, User } from '../types';
+import { shareResource, getSharedContent } from '../services/sharingService';
 
 interface VaultProps {
+  user: User;
   assets: LabAsset[];
   chats: ChatSession[];
   onViewAsset: (asset: LabAsset) => void;
@@ -10,12 +12,33 @@ interface VaultProps {
   onClearAll: () => void;
 }
 
-const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset, onClearAll }) => {
+const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDeleteAsset, onClearAll }) => {
   const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'flashcards' | 'slides' | 'research' | 'image_analysis'>('all');
+  const [vaultTab, setVaultTab] = useState<'personal' | 'shared'>('personal');
+  const [sharedAssets, setSharedAssets] = useState<LabAsset[]>([]);
   const [search, setSearch] = useState('');
+  
+  // Modal States
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareTargetAssetId, setShareTargetAssetId] = useState<string | null>(null); // null means vault share
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const filteredAssets = assets.filter(asset => {
+  // Load shared content when switching to Shared tab
+  useEffect(() => {
+    if (vaultTab === 'shared') {
+      const loadShared = async () => {
+        const shared = await getSharedContent(user.email);
+        setSharedAssets(shared);
+      };
+      loadShared();
+    }
+  }, [vaultTab, user.email]);
+
+  const activeAssetsList = vaultTab === 'personal' ? assets : sharedAssets;
+
+  const filteredAssets = activeAssetsList.filter(asset => {
     const matchesFilter = filter === 'all' ? true : asset.type === filter;
     const matchesSearch = asset.title.toLowerCase().includes(search.toLowerCase()) || 
                           asset.sourceName.toLowerCase().includes(search.toLowerCase());
@@ -25,6 +48,26 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
   const handleClearConfirm = () => {
     onClearAll();
     setIsConfirmingClear(false);
+  };
+
+  const openShareModal = (assetId: string | null = null) => {
+    setShareTargetAssetId(assetId);
+    setShareEmail('');
+    setShareStatus('idle');
+    setIsSharing(true);
+  };
+
+  const handleShareSubmit = async () => {
+    if (!shareEmail.trim()) return;
+    setShareStatus('loading');
+    try {
+      await shareResource(user.id, shareEmail, shareTargetAssetId || undefined);
+      setShareStatus('success');
+      setTimeout(() => setIsSharing(false), 1500);
+    } catch (e) {
+      console.error(e);
+      setShareStatus('error');
+    }
   };
 
   const getAssetStyle = (type: string) => {
@@ -77,20 +120,44 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
   return (
     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <header className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-4xl font-black mb-2 tracking-tight">The Vault</h1>
             <p className="text-slate-500">Your historical workspace data and generated intelligence.</p>
           </div>
-          {assets.length > 0 && (
-            <button 
-              onClick={() => setIsConfirmingClear(true)}
-              className="px-6 py-2.5 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-rose-500/20"
-            >
-              <i className="fas fa-trash-sweep"></i> Clear All Assets
-            </button>
-          )}
+          <div className="flex gap-3">
+             <button 
+                onClick={() => openShareModal(null)}
+                className="px-6 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+              >
+                <i className="fas fa-share-alt"></i> Share Vault
+              </button>
+              {assets.length > 0 && vaultTab === 'personal' && (
+                <button 
+                  onClick={() => setIsConfirmingClear(true)}
+                  className="px-6 py-2.5 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-rose-500/20"
+                >
+                  <i className="fas fa-trash-sweep"></i> Clear Assets
+                </button>
+              )}
+          </div>
         </header>
+
+        {/* Tab Switcher (Personal vs Shared) */}
+        <div className="flex bg-[#151515] p-1.5 rounded-2xl mb-8 border border-slate-800 w-full max-w-sm">
+           <button 
+             onClick={() => setVaultTab('personal')}
+             className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${vaultTab === 'personal' ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             <i className="fas fa-user-lock mr-2"></i> My Assets
+           </button>
+           <button 
+             onClick={() => setVaultTab('shared')}
+             className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${vaultTab === 'shared' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+           >
+             <i className="fas fa-share-alt mr-2"></i> Shared With Me
+           </button>
+        </div>
 
         <div className="flex flex-col md:flex-row gap-6 mb-10 border-b border-slate-800 pb-8">
            {/* Search Bar */}
@@ -128,15 +195,28 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${style.bg} ${style.text}`}>
                     <i className={`fas ${style.icon}`}></i>
                   </div>
-                  <div className="flex flex-col items-end">
+                  <div className="flex flex-col items-end gap-2">
                       <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest">{new Date(asset.timestamp).toLocaleDateString()}</span>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset.id); }}
-                        className="mt-2 text-slate-700 hover:text-rose-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
-                        title="Delete Asset"
-                      >
-                        <i className="fas fa-trash-alt text-xs"></i>
-                      </button>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         {vaultTab === 'personal' && (
+                           <>
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); openShareModal(asset.id); }}
+                               className="text-slate-700 hover:text-indigo-400 transition-colors p-1"
+                               title="Share Asset"
+                             >
+                               <i className="fas fa-share-alt text-xs"></i>
+                             </button>
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); onDeleteAsset(asset.id); }}
+                               className="text-slate-700 hover:text-rose-500 transition-colors p-1"
+                               title="Delete Asset"
+                             >
+                               <i className="fas fa-trash-alt text-xs"></i>
+                             </button>
+                           </>
+                         )}
+                      </div>
                   </div>
                 </div>
                 <h3 className="text-lg font-bold mb-2 truncate text-slate-100" title={asset.title}>{asset.title}</h3>
@@ -163,11 +243,61 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
                 <i className="fas fa-ghost text-3xl text-slate-600"></i>
               </div>
               <p className="text-slate-500 font-medium">No intelligence found matching criteria.</p>
-              <p className="text-slate-700 text-sm mt-2">Generate new content in the Lab or Deep Research.</p>
+              {vaultTab === 'personal' && <p className="text-slate-700 text-sm mt-2">Generate new content in the Lab or Deep Research.</p>}
+              {vaultTab === 'shared' && <p className="text-slate-700 text-sm mt-2">Items shared with you via email will appear here.</p>}
             </div>
           )}
         </div>
       </div>
+
+      {/* Sharing Modal */}
+      {isSharing && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-fadeIn">
+           <div className="bg-[#0d0d0d] border border-slate-800 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 to-purple-600"></div>
+              
+              <h2 className="text-2xl font-black text-white mb-2">
+                {shareTargetAssetId ? 'Share Asset' : 'Share Entire Vault'}
+              </h2>
+              <p className="text-slate-500 mb-8 text-sm">
+                Grant read access to {shareTargetAssetId ? 'this specific item' : 'your entire library'}.
+              </p>
+
+              <div className="space-y-6">
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Recipient Email</label>
+                    <input 
+                      type="email" 
+                      placeholder="student@university.edu" 
+                      value={shareEmail}
+                      onChange={(e) => setShareEmail(e.target.value)}
+                      className="w-full bg-[#151515] border border-slate-800 rounded-2xl p-4 text-slate-200 outline-none focus:border-indigo-500"
+                    />
+                 </div>
+
+                 {shareStatus === 'error' && <p className="text-rose-500 text-xs font-bold">Failed to share. Please try again.</p>}
+                 {shareStatus === 'success' && <p className="text-emerald-500 text-xs font-bold">Successfully shared!</p>}
+
+                 <div className="flex gap-4">
+                    <button 
+                      onClick={() => setIsSharing(false)}
+                      className="flex-1 py-4 bg-slate-800 text-slate-400 hover:text-white rounded-2xl font-bold text-xs uppercase tracking-widest"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleShareSubmit}
+                      disabled={shareStatus === 'loading' || !shareEmail}
+                      className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {shareStatus === 'loading' && <i className="fas fa-circle-notch animate-spin"></i>}
+                      Share Access
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* Clear All Confirmation Modal */}
       {isConfirmingClear && (

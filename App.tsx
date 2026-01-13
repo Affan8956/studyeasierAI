@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState } from './types';
+import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState, AppTheme } from './types';
 import { getCurrentSession, logout } from './services/authService';
 import { getHistory, saveChat, deleteChat, createNewChat, getAssets, saveAsset, deleteAsset, clearAllAssets } from './services/historyService';
 import { processUnifiedLabContent, performDeepResearch, analyzeImage } from './services/geminiService';
@@ -13,6 +13,8 @@ import LabPanel from './components/LabPanel';
 import Vault from './components/Vault';
 import ResearchView from './components/ResearchView';
 import VisionPanel from './components/VisionPanel';
+import AboutView from './components/AboutView';
+import ThemeSelector from './components/ThemeSelector';
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, token: null, isAuthenticated: false });
@@ -23,6 +25,7 @@ const App: React.FC = () => {
   const [isInitializingChat, setIsInitializingChat] = useState(false);
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [viewingAsset, setViewingAsset] = useState<LabAsset | null>(null);
+  const [theme, setTheme] = useState<AppTheme>('default');
 
   // --- Background Processing States ---
   const [labState, setLabState] = useState<LabState>({
@@ -80,6 +83,10 @@ const App: React.FC = () => {
 
     init();
 
+    // Check for saved theme
+    const savedTheme = localStorage.getItem('app_theme') as AppTheme;
+    if (savedTheme) handleThemeChange(savedTheme);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
         const fullSession = await getCurrentSession();
@@ -111,8 +118,19 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Logic to handle "AI Tutor" button from sidebar is now handled via explicit handlers in Sidebar
-  
+  const handleThemeChange = (newTheme: AppTheme) => {
+    setTheme(newTheme);
+    localStorage.setItem('app_theme', newTheme);
+    
+    // Remove all theme classes first
+    document.documentElement.classList.remove('theme-light', 'theme-midnight', 'theme-forest');
+    
+    // Add new theme class if not default
+    if (newTheme !== 'default') {
+      document.documentElement.classList.add(`theme-${newTheme}`);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
   };
@@ -124,7 +142,6 @@ const App: React.FC = () => {
       const chat = await createNewChat(auth.user.id, mode);
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat.id);
-      // For tutor mode, we stay in 'tutor' view state but use ChatInterface
       if (mode === 'tutor') {
         setView('tutor');
       } else {
@@ -155,11 +172,6 @@ const App: React.FC = () => {
     if (!auth.user) return;
     await deleteAsset(auth.user.id, id);
     setAssets(prev => prev.filter(a => a.id !== id));
-    
-    // Clear viewing state if deleted
-    if (labState.currentPackage && labState.currentPackage.id === id) {
-       // logic to clear lab state if needed
-    }
   };
 
   const handleClearAllAssets = async () => {
@@ -188,7 +200,7 @@ const App: React.FC = () => {
     } else if (asset.type === 'image_analysis') {
       setVisionState({
         isLoading: false,
-        image: null, // Don't reload base64 from DB to save bandwidth, unless we stored it
+        image: null, 
         mimeType: '',
         prompt: asset.title,
         result: asset.content,
@@ -196,7 +208,6 @@ const App: React.FC = () => {
       });
       setView('vision');
     } else {
-      // Reconstruct package structure for LabPanel
       const mockPackage: any = { title: asset.title };
       if (asset.type === 'summary') mockPackage.summary = { content: asset.content };
       if (asset.type === 'quiz') mockPackage.quiz = asset.content;
@@ -208,16 +219,13 @@ const App: React.FC = () => {
         error: null,
         lastSourceInfo: asset.sourceName,
         currentPackage: mockPackage,
-        activeTab: asset.type // Explicitly set the tab to match asset type
+        activeTab: asset.type
       });
       setView('lab');
     }
   };
 
-  // --- Background Process Handlers ---
-
   const handleLabProcess = async (sourcePayload: { file?: { base64: string; mimeType: string }; url?: string }, sourceName: string) => {
-    // Reset activeTab to summary for new generations
     setLabState(prev => ({ 
       ...prev, 
       isLoading: true, 
@@ -231,7 +239,6 @@ const App: React.FC = () => {
       const result = await processUnifiedLabContent(sourcePayload);
       setLabState(prev => ({ ...prev, isLoading: false, currentPackage: result }));
 
-      // Auto-save generated assets
       await handleSaveAsset({ title: result.title, type: 'summary', content: result.summary.content, sourceName });
       await handleSaveAsset({ title: result.title, type: 'quiz', content: result.quiz, sourceName });
       await handleSaveAsset({ title: result.title, type: 'flashcards', content: result.flashcards, sourceName });
@@ -249,7 +256,6 @@ const App: React.FC = () => {
       const data = await performDeepResearch(query);
       setResearchState(prev => ({ ...prev, isLoading: false, result: data }));
       
-      // Auto-save research
       await handleSaveAsset({
         title: query.charAt(0).toUpperCase() + query.slice(1),
         type: 'research',
@@ -270,7 +276,6 @@ const App: React.FC = () => {
       const analysisText = await analyzeImage(base64Data, mimeType, prompt);
       setVisionState(prev => ({ ...prev, isLoading: false, result: analysisText }));
 
-      // Auto-save result
       await handleSaveAsset({
         title: prompt ? `Analysis: ${prompt.slice(0, 20)}...` : 'Image Analysis',
         type: 'image_analysis',
@@ -292,20 +297,13 @@ const App: React.FC = () => {
   };
 
   const handleSidebarViewChange = (targetView: ViewState) => {
-    // RESET LOGIC: If user clicks "Knowledge Lab" in sidebar, reset to upload screen 
-    // unless it's currently processing (loading).
     if (targetView === 'lab' && !labState.isLoading) {
       handleClearLab();
     }
-    
-    // Clear viewing asset if switching views generally, except if going to the specific view for that asset
     if (targetView !== 'vision' && targetView !== 'research' && targetView !== 'lab') {
        setViewingAsset(null);
     }
-    
     setView(targetView);
-    
-    // Clear active chat if moving away from chat views
     if(targetView !== 'chat' && targetView !== 'tutor') {
       setActiveChatId(null);
     }
@@ -313,7 +311,7 @@ const App: React.FC = () => {
 
   if (isAppLoading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-white animate-fadeIn">
+      <div className="min-h-screen bg-app flex flex-col items-center justify-center p-6 text-white animate-fadeIn">
         <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Initializing Core AI...</p>
         <p className="text-slate-600 text-[9px] mt-4 uppercase font-bold tracking-widest">Verifying Academic Handshake</p>
@@ -323,14 +321,14 @@ const App: React.FC = () => {
 
   if (!auth.isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-app flex items-center justify-center p-6">
         <AuthForm onAuthComplete={(user, token) => setAuth({user, token, isAuthenticated: true})} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-[#0a0a0a] text-slate-100 overflow-hidden">
+    <div className="flex h-screen bg-app text-text-main overflow-hidden transition-colors duration-300">
       <Sidebar 
         view={view} 
         setView={handleSidebarViewChange} 
@@ -345,6 +343,9 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 relative flex flex-col overflow-hidden">
+        {/* THEME SELECTOR - Top Right Corner */}
+        <ThemeSelector currentTheme={theme} onThemeChange={handleThemeChange} />
+
         {view === 'dashboard' && (
           <Dashboard 
             user={auth.user!} 
@@ -395,12 +396,17 @@ const App: React.FC = () => {
 
         {view === 'vault' && (
           <Vault 
+            user={auth.user!}
             assets={assets} 
             chats={chats} 
             onViewAsset={handleOpenAsset}
             onDeleteAsset={handleDeleteAsset}
             onClearAll={handleClearAllAssets}
           />
+        )}
+
+        {view === 'about' && (
+          <AboutView />
         )}
 
         {isInitializingChat && (

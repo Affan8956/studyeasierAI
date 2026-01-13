@@ -7,21 +7,115 @@
     <title>StudyEasierAI - Your Academic Powerhouse</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <!-- Removed html2pdf as we are switching to native print -->
     
-    <!-- KaTeX for Math Rendering -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Tailwind Config for Theming -->
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              app: 'var(--bg-app)',
+              sidebar: 'var(--bg-sidebar)',
+              surface: 'var(--bg-surface)',
+              surface2: 'var(--bg-surface-2)',
+              border: 'var(--border-base)',
+              text: {
+                main: 'var(--text-main)',
+                muted: 'var(--text-muted)',
+                invert: 'var(--text-invert)'
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- MathJax Configuration & Loader -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          packages: {'[+]': ['noerrors', 'noundefined']}
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        },
+        loader: {load: ['[tex]/noerrors', '[tex]/noundefined']}
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
 
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+      
+      /* THEME VARIABLES */
+      :root {
+        /* DEFAULT THEME (Cyber/Dark) - EXACT Match to current hex codes */
+        --bg-app: #0a0a0a;
+        --bg-sidebar: #0d0d0d;
+        --bg-surface: #151515;
+        --bg-surface-2: #121212;
+        --border-base: #1e293b; /* slate-800 */
+        --text-main: #f1f5f9;   /* slate-100 */
+        --text-muted: #64748b;  /* slate-500 */
+        --text-invert: #000000;
+      }
+
+      .theme-light {
+        /* LIGHT THEME (Academic Paper) */
+        --bg-app: #f8fafc;      /* slate-50 */
+        --bg-sidebar: #ffffff;
+        --bg-surface: #ffffff;
+        --bg-surface-2: #f1f5f9;
+        --border-base: #e2e8f0; /* slate-200 */
+        --text-main: #0f172a;   /* slate-900 */
+        --text-muted: #64748b;  /* slate-500 */
+        --text-invert: #ffffff;
+      }
+
+      .theme-midnight {
+        /* MIDNIGHT THEME (OLED) */
+        --bg-app: #000000;
+        --bg-sidebar: #000000;
+        --bg-surface: #050505;
+        --bg-surface-2: #0a0a0a;
+        --border-base: #262626; /* neutral-800 */
+        --text-main: #e5e5e5;   /* neutral-200 */
+        --text-muted: #737373;  /* neutral-500 */
+        --text-invert: #000000;
+      }
+
+      .theme-forest {
+        /* FOREST THEME (Nature) */
+        --bg-app: #020617;      /* slate-950 */
+        --bg-sidebar: #051a10;  /* deep green */
+        --bg-surface: #062c1b;  
+        --bg-surface-2: #022c22;
+        --border-base: #064e3b; /* emerald-900 */
+        --text-main: #ecfccb;   /* lime-100 */
+        --text-muted: #65a30d;  /* lime-600 */
+        --text-invert: #000000;
+      }
+
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #0d0d0d;
-        color: #f1f5f9;
+        background-color: var(--bg-app);
+        color: var(--text-main);
         margin: 0;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
+
+      /* Apply variable colors to standard classes via mapping */
+      .bg-app { background-color: var(--bg-app); }
+      .bg-sidebar { background-color: var(--bg-sidebar); }
+      .bg-surface { background-color: var(--bg-surface); }
+      .border-theme { border-color: var(--border-base); }
+      .text-theme-main { color: var(--text-main); }
+      .text-theme-muted { color: var(--text-muted); }
+
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
       }
@@ -43,9 +137,9 @@
         animation: fadeIn 0.4s ease-out forwards;
       }
 
-      /* KaTeX Custom Overrides */
-      .katex-display {
-        margin: 1.5em 0;
+      /* MathJax Custom Overrides for Dark Mode */
+      mjx-container[jax="CHTML"][display="true"] {
+        margin: 1.5em 0 !important;
         padding: 1em;
         background: rgba(16, 185, 129, 0.03);
         border-radius: 1rem;
@@ -53,9 +147,9 @@
         overflow-x: auto;
         overflow-y: hidden;
       }
-      .katex {
-        font-size: 1.1em;
-        color: #10b981; /* Emerald-500 for math */
+      mjx-container {
+        color: #10b981 !important; /* Emerald-500 */
+        font-size: 1.1em !important;
       }
       
       /* 3D Flip Card Utilities */
@@ -98,7 +192,8 @@
         input, 
         .sidebar, 
         header.no-print-header,
-        .auth-container { 
+        .auth-container,
+        .theme-selector { 
           display: none !important; 
         }
 
@@ -114,9 +209,9 @@
           color: #1f2937 !important; /* Dark Gray for readability */
         }
         
-        /* Make Math Black */
-        .katex { color: #000000 !important; }
-        .katex-display {
+        /* Make Math Black for Print */
+        mjx-container { color: #000000 !important; }
+        mjx-container[jax="CHTML"][display="true"] {
           background: transparent !important;
           border: 1px solid #eee !important;
         }
