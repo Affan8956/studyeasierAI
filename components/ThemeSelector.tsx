@@ -31,18 +31,18 @@ const ThemeSelector: React.FC<ThemeSelectorProps> = ({ currentTheme, onThemeChan
   const activeTheme = themes.find(t => t.id === currentTheme) || themes[0];
 
   return (
-    <div className="absolute top-6 right-8 z-50 theme-selector" ref={menuRef}>
+    <div className="absolute top-4 right-4 md:top-6 md:right-8 z-50 theme-selector" ref={menuRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 bg-surface border border-border px-4 py-2.5 rounded-full shadow-lg hover:border-indigo-500/50 transition-all group"
+        className="flex items-center gap-3 bg-surface border border-border px-3 md:px-4 py-2 md:py-2.5 rounded-full shadow-lg hover:border-indigo-500/50 transition-all group"
       >
-        <div className={`w-4 h-4 rounded-full ${activeTheme.color} border border-slate-600 shadow-sm`}></div>
+        <div className={`w-3 h-3 md:w-4 md:h-4 rounded-full ${activeTheme.color} border border-slate-600 shadow-sm`}></div>
         <span className="text-text-main text-xs font-bold uppercase tracking-widest hidden md:block">{activeTheme.name}</span>
         <i className={`fas fa-chevron-down text-text-muted text-[10px] transition-transform ${isOpen ? 'rotate-180' : ''}`}></i>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-14 w-48 bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="absolute right-0 top-12 md:top-14 w-48 bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden animate-fadeIn">
           {themes.map(theme => (
             <button
               key={theme.id}

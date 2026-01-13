@@ -91,7 +91,7 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
         accent: 'bg-violet-500' 
       };
       case 'slides': return { 
-        icon: 'fa-presentation', 
+        icon: 'fa-chalkboard', 
         bg: 'bg-blue-600/20', 
         text: 'text-blue-400', 
         accent: 'bg-blue-500' 
@@ -118,24 +118,24 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-      <div className="max-w-6xl mx-auto">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar pb-24 md:pb-8">
+      <div className="max-w-6xl mx-auto pt-10 md:pt-0">
         <header className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black mb-2 tracking-tight">The Vault</h1>
-            <p className="text-slate-500">Your historical workspace data and generated intelligence.</p>
+            <h1 className="text-3xl md:text-4xl font-black mb-2 tracking-tight">The Vault</h1>
+            <p className="text-slate-500 text-sm md:text-base">Your historical workspace data and generated intelligence.</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 w-full md:w-auto">
              <button 
                 onClick={() => openShareModal(null)}
-                className="px-6 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
+                className="flex-1 md:flex-none px-6 py-3 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20"
               >
                 <i className="fas fa-share-alt"></i> Share Vault
               </button>
               {assets.length > 0 && vaultTab === 'personal' && (
                 <button 
                   onClick={() => setIsConfirmingClear(true)}
-                  className="px-6 py-2.5 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-rose-500/20"
+                  className="flex-1 md:flex-none px-6 py-3 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-rose-500/20"
                 >
                   <i className="fas fa-trash-sweep"></i> Clear Assets
                 </button>
@@ -147,24 +147,24 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
         <div className="flex bg-[#151515] p-1.5 rounded-2xl mb-8 border border-slate-800 w-full max-w-sm">
            <button 
              onClick={() => setVaultTab('personal')}
-             className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${vaultTab === 'personal' ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+             className={`flex-1 py-2.5 md:py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${vaultTab === 'personal' ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
            >
              <i className="fas fa-user-lock mr-2"></i> My Assets
            </button>
            <button 
              onClick={() => setVaultTab('shared')}
-             className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${vaultTab === 'shared' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+             className={`flex-1 py-2.5 md:py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${vaultTab === 'shared' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
            >
              <i className="fas fa-share-alt mr-2"></i> Shared With Me
            </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-6 mb-10 border-b border-slate-800 pb-8">
+        <div className="flex flex-col lg:flex-row gap-6 mb-10 border-b border-slate-800 pb-8">
            {/* Search Bar */}
-           <div className="relative w-full md:w-80">
+           <div className="relative w-full lg:w-80">
              <input 
                type="text" 
-               placeholder="Search assets by title or source..." 
+               placeholder="Search assets..." 
                value={search}
                onChange={(e) => setSearch(e.target.value)}
                className="w-full bg-[#151515] border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-200 outline-none focus:border-indigo-600 transition-colors shadow-lg"
@@ -173,12 +173,12 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
            </div>
 
            {/* Filter Tabs */}
-           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar flex-1">
+           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar flex-1 w-full">
             {(['all', 'summary', 'quiz', 'flashcards', 'slides', 'research', 'image_analysis'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === f ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#151515] text-slate-500 hover:text-white hover:bg-slate-800'}`}
+                className={`px-4 md:px-5 py-2 md:py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === f ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#151515] text-slate-500 hover:text-white hover:bg-slate-800'}`}
               >
                 {f.replace('_', ' ')}
               </button>
@@ -197,7 +197,7 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
                   </div>
                   <div className="flex flex-col items-end gap-2">
                       <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest">{new Date(asset.timestamp).toLocaleDateString()}</span>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                          {vaultTab === 'personal' && (
                            <>
                              <button 
@@ -253,10 +253,10 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
       {/* Sharing Modal */}
       {isSharing && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-fadeIn">
-           <div className="bg-[#0d0d0d] border border-slate-800 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
+           <div className="bg-[#0d0d0d] border border-slate-800 rounded-[2.5rem] p-6 md:p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 to-purple-600"></div>
               
-              <h2 className="text-2xl font-black text-white mb-2">
+              <h2 className="text-xl md:text-2xl font-black text-white mb-2">
                 {shareTargetAssetId ? 'Share Asset' : 'Share Entire Vault'}
               </h2>
               <p className="text-slate-500 mb-8 text-sm">
@@ -271,7 +271,7 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
                       placeholder="student@university.edu" 
                       value={shareEmail}
                       onChange={(e) => setShareEmail(e.target.value)}
-                      className="w-full bg-[#151515] border border-slate-800 rounded-2xl p-4 text-slate-200 outline-none focus:border-indigo-500"
+                      className="w-full bg-[#151515] border border-slate-800 rounded-2xl p-4 text-slate-200 outline-none focus:border-indigo-500 text-sm"
                     />
                  </div>
 
@@ -302,12 +302,12 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
       {/* Clear All Confirmation Modal */}
       {isConfirmingClear && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-fadeIn">
-          <div className="bg-[#0d0d0d] border border-slate-800 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl">
-            <div className="w-20 h-20 bg-rose-600/10 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl">
-              <i className="fas fa-exclamation-triangle text-3xl"></i>
+          <div className="bg-[#0d0d0d] border border-slate-800 rounded-[2.5rem] p-6 md:p-10 max-w-md w-full shadow-2xl">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-rose-600/10 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-xl">
+              <i className="fas fa-exclamation-triangle text-2xl md:text-3xl"></i>
             </div>
-            <h2 className="text-2xl font-black text-white text-center mb-4 tracking-tight uppercase">Confirm Wipe</h2>
-            <p className="text-slate-500 text-center mb-10 leading-relaxed font-medium">
+            <h2 className="text-xl md:text-2xl font-black text-white text-center mb-4 tracking-tight uppercase">Confirm Wipe</h2>
+            <p className="text-slate-500 text-center mb-10 leading-relaxed font-medium text-sm md:text-base">
               This action is permanent and will delete <span className="text-rose-400 font-bold">{assets.length} items</span> from your workspace and cloud synchronized storage.
             </p>
             <div className="flex gap-4">

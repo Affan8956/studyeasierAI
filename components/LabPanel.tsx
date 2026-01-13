@@ -88,23 +88,23 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
   });
 
   return (
-    <div className="flex-1 flex flex-col p-8 overflow-y-auto custom-scrollbar">
-      <div className="max-w-5xl mx-auto w-full">
-        <header className="mb-10 text-center no-print">
-          <h1 className="text-4xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400">
+    <div className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto custom-scrollbar pb-24 md:pb-8">
+      <div className="max-w-5xl mx-auto w-full pt-10 md:pt-0">
+        <header className="mb-8 md:mb-10 text-center no-print">
+          <h1 className="text-3xl md:text-4xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400">
             Knowledge Lab
           </h1>
-          <p className="text-slate-500 font-medium">Single-pass intelligent extraction from any source.</p>
+          <p className="text-slate-500 font-medium text-sm md:text-base">Single-pass intelligent extraction from any source.</p>
         </header>
 
         {(currentPackage || isLoading) && (
-          <div className="flex justify-center gap-4 mb-10 no-print flex-wrap">
+          <div className="flex justify-center gap-3 mb-8 md:mb-10 no-print flex-wrap">
             {visibleTabs.map((t) => (
               <button
                 key={t}
                 onClick={() => setActiveTool(t)}
                 disabled={isLoading}
-                className={`px-8 py-3 rounded-2xl font-bold transition-all border ${
+                className={`px-5 py-2.5 md:px-8 md:py-3 rounded-2xl font-bold transition-all border text-xs md:text-sm ${
                   activeTool === t 
                   ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
                   : 'bg-[#151515] border-slate-800 text-slate-500 hover:text-slate-300'
@@ -114,7 +114,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
                   t === 'summary' ? 'fa-file-alt' : 
                   t === 'quiz' ? 'fa-tasks' : 
                   t === 'flashcards' ? 'fa-layer-group' : 
-                  'fa-presentation'
+                  'fa-chalkboard'
                 }`}></i>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -125,7 +125,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
         {!currentPackage && !isLoading && (
           <div className="animate-fadeIn no-print">
             <div className="mb-4 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Unified Summary-First Pass</p>
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Unified Summary-First Pass</p>
             </div>
             <FileUpload 
               onUpload={(file) => handleSourceSubmission({ file })} 
@@ -143,7 +143,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
                 <i className="fas fa-brain text-emerald-500 animate-pulse text-sm"></i>
               </div>
             </div>
-            <div className="text-center max-w-sm">
+            <div className="text-center max-w-sm px-4">
               <p className="text-emerald-400 font-black animate-pulse uppercase tracking-[0.4em] text-[11px] mb-2">
                 {LOADING_STATUSES[statusIndex]}
               </p>
@@ -173,20 +173,20 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
 
         {currentPackage && !isLoading && (
           <div className="animate-fadeIn space-y-8">
-            <div className="flex justify-between items-center bg-[#151515] p-4 rounded-2xl border border-slate-800 no-print">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <div className="flex flex-col md:flex-row justify-between items-center bg-[#151515] p-4 rounded-2xl border border-slate-800 no-print gap-4">
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 text-center md:text-left">
                 <i className="fas fa-fingerprint mr-2 text-emerald-500"></i> Entity: <span className="text-slate-300">{currentPackage.title}</span>
               </p>
               <div className="flex gap-4">
                 <button 
                   onClick={downloadPackage}
-                  className="text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
+                  className="text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-2 font-black text-[9px] md:text-[10px] uppercase tracking-widest"
                 >
                   <i className="fas fa-download"></i> Full Export
                 </button>
                 <button 
                   onClick={onClear}
-                  className="text-rose-500 hover:text-rose-400 transition-colors flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
+                  className="text-rose-500 hover:text-rose-400 transition-colors flex items-center gap-2 font-black text-[9px] md:text-[10px] uppercase tracking-widest"
                 >
                   <i className="fas fa-sync"></i> New Source
                 </button>

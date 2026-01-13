@@ -26,6 +26,9 @@ const App: React.FC = () => {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [viewingAsset, setViewingAsset] = useState<LabAsset | null>(null);
   const [theme, setTheme] = useState<AppTheme>('default');
+  
+  // Mobile Sidebar State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // --- Background Processing States ---
   const [labState, setLabState] = useState<LabState>({
@@ -147,6 +150,7 @@ const App: React.FC = () => {
       } else {
         setView('chat');
       }
+      setIsMobileMenuOpen(false);
     } catch (e: any) {
       console.error("Failed to create new chat:", e.message || e);
     } finally {
@@ -223,6 +227,7 @@ const App: React.FC = () => {
       });
       setView('lab');
     }
+    setIsMobileMenuOpen(false);
   };
 
   const handleLabProcess = async (sourcePayload: { file?: { base64: string; mimeType: string }; url?: string }, sourceName: string) => {
@@ -307,6 +312,7 @@ const App: React.FC = () => {
     if(targetView !== 'chat' && targetView !== 'tutor') {
       setActiveChatId(null);
     }
+    setIsMobileMenuOpen(false);
   };
 
   if (isAppLoading) {
@@ -329,20 +335,38 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-app text-text-main overflow-hidden transition-colors duration-300">
+      {/* Mobile Menu Button */}
+      <button 
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="lg:hidden absolute top-4 left-4 z-50 w-10 h-10 bg-surface border border-border rounded-xl flex items-center justify-center text-text-muted hover:text-text-main hover:bg-surface-2 transition-all shadow-lg"
+      >
+        <i className="fas fa-bars"></i>
+      </button>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-fadeIn"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
+
       <Sidebar 
         view={view} 
         setView={handleSidebarViewChange} 
         chats={chats}
         activeChatId={activeChatId}
-        onSelectChat={(id) => { setActiveChatId(id); setView('chat'); }}
+        onSelectChat={(id) => { setActiveChatId(id); setView('chat'); setIsMobileMenuOpen(false); }}
         onNewChat={() => handleNewChat('study')}
         onNewTutorChat={() => handleNewChat('tutor')}
         onDeleteChat={handleDeleteChat}
         user={auth.user!}
         onLogout={handleLogout}
+        mobileOpen={isMobileMenuOpen}
+        onMobileClose={() => setIsMobileMenuOpen(false)}
       />
 
-      <main className="flex-1 relative flex flex-col overflow-hidden">
+      <main className="flex-1 relative flex flex-col overflow-hidden w-full">
         {/* THEME SELECTOR - Top Right Corner */}
         <ThemeSelector currentTheme={theme} onThemeChange={handleThemeChange} />
 
@@ -351,7 +375,7 @@ const App: React.FC = () => {
             user={auth.user!} 
             chats={chats} 
             assets={assets}
-            onAction={(target) => setView(target)}
+            onAction={(target) => { setView(target); }}
             onNewChat={() => handleNewChat('study')}
             onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
             onOpenAsset={handleOpenAsset}

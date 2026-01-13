@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Message, AIMode, GroundingChunk } from "../types";
 
 const PRO_MODEL = "gemini-3-pro-preview";
@@ -45,6 +44,33 @@ const getApiKey = (): string => {
   return '';
 };
 
+/**
+ * Retry Helper for Rate Limits (429)
+ */
+const retryWithBackoff = async <T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 2000
+): Promise<T> => {
+  let retries = 0;
+  while (true) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const isRateLimit = error.status === 429 || error.code === 429 || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('RESOURCE_EXHAUSTED');
+      
+      if (isRateLimit && retries < maxRetries) {
+        const delay = initialDelay * Math.pow(2, retries);
+        console.warn(`Gemini API Rate Limit hit. Retrying in ${delay}ms... (Attempt ${retries + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        retries++;
+        continue;
+      }
+      throw error;
+    }
+  }
+};
+
 // --- CHAT STREAMING ---
 export const streamChatResponse = async (
   history: Message[],
@@ -66,7 +92,7 @@ export const streamChatResponse = async (
   const thinkingBudget = mode === 'tutor' ? 2048 : 15000;
 
   try {
-    const stream = await ai.models.generateContentStream({
+    const stream = await retryWithBackoff(() => ai.models.generateContentStream({
       model: PRO_MODEL,
       contents,
       config: {
@@ -75,7 +101,7 @@ export const streamChatResponse = async (
         maxOutputTokens: 30000,
         temperature: 0.7
       }
-    });
+    })) as any;
 
     let fullText = "";
     for await (const chunk of stream) {
@@ -86,6 +112,9 @@ export const streamChatResponse = async (
     }
     return fullText;
   } catch (error: any) {
+    if (error.status === 429 || error.message?.includes('429')) {
+      throw new Error("System overloaded (Rate Limit). Please wait a moment and try again.");
+    }
     throw new Error(error.message || "AI Engine Error");
   }
 };
@@ -98,7 +127,7 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await retryWithBackoff(() => ai.models.generateContent({
       model: FAST_MODEL, // gemini-3-flash-preview
       contents: query,
       config: {
@@ -108,7 +137,7 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
         2. Compile the answer into a comprehensive Markdown report with H1, H2, and bold key terms.
         3. Be objective and factual.`,
       },
-    });
+    })) as GenerateContentResponse;
 
     const text = response.text || "No results found.";
     
@@ -116,7 +145,7 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
     const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
 
     // Map SDK types to App types to fix incompatibility
-    const groundingChunks: GroundingChunk[] = rawChunks.map(chunk => ({
+    const groundingChunks: GroundingChunk[] = rawChunks.map((chunk: any) => ({
       web: chunk.web ? {
         uri: chunk.web.uri || '',
         title: chunk.web.title || ''
@@ -125,6 +154,9 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
 
     return { text, groundingChunks };
   } catch (error: any) {
+    if (error.status === 429) {
+      throw new Error("Research Limit Reached. Please try again in 30 seconds.");
+    }
     throw new Error(error.message || "Deep Research Failed");
   }
 };
@@ -143,7 +175,7 @@ export const generateSlideImage = async (title: string, context: string): Promis
   Requirement: NO TEXT in the image. Scientific and instructional vibes. Highly relatable to the subject matter.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await retryWithBackoff(() => ai.models.generateContent({
       model: IMAGE_MODEL,
       contents: { parts: [{ text: visualPrompt }] },
       config: {
@@ -151,7 +183,7 @@ export const generateSlideImage = async (title: string, context: string): Promis
           aspectRatio: "16:9"
         }
       }
-    });
+    }), 2, 1000) as GenerateContentResponse; // Fewer retries for images to keep UI snappy
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
@@ -161,6 +193,7 @@ export const generateSlideImage = async (title: string, context: string): Promis
     throw new Error("No image data returned");
   } catch (err) {
     console.error("Image generation failed:", err);
+    // Fallback to loremflickr on error
     return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
   }
 };
@@ -184,22 +217,24 @@ export const analyzeImage = async (base64Image: string, mimeType: string, prompt
   };
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await retryWithBackoff(() => ai.models.generateContent({
       model: PRO_MODEL, // Using Pro for complex reasoning on images (math/charts)
       contents: { parts: [imagePart, textPart] },
       config: {
         systemInstruction: `You are an expert Visual Analyst and Tutor. 
         1. Analyze the provided image deeply. 
         2. If it contains Math: Solve it step-by-step using LaTeX ($...$).
-        3. If it contains Text: Transcribe it and summarize key points.
-        4. If it's a Diagram: Explain the components and relationships.
-        5. Format output with clear Markdown headers.`,
+        3. If it's a Diagram: Explain the components and relationships.
+        4. Format output with clear Markdown headers.`,
         thinkingConfig: { thinkingBudget: 10240 }, // High reasoning budget for visual analysis
       }
-    });
+    })) as GenerateContentResponse;
 
     return response.text || "Could not analyze image.";
   } catch (error: any) {
+    if (error.status === 429) {
+      throw new Error("Analysis limit reached. Please wait a moment.");
+    }
     throw new Error(error.message || "Image Analysis Failed");
   }
 };
@@ -299,7 +334,7 @@ export const processUnifiedLabContent = async (
   }
   parts.push({ text: instruction });
 
-  const response = await ai.models.generateContent({
+  const response = await retryWithBackoff(() => ai.models.generateContent({
     model: PRO_MODEL,
     contents: { parts },
     config: {
@@ -310,7 +345,7 @@ export const processUnifiedLabContent = async (
       maxOutputTokens: 30000,
       temperature: 0.1
     }
-  });
+  })) as GenerateContentResponse;
 
   try {
     const text = response.text || "{}";

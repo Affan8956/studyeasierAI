@@ -13,9 +13,14 @@ interface SidebarProps {
   onDeleteChat: (id: string) => void;
   user: User;
   onLogout: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ view, setView, chats, activeChatId, onSelectChat, onNewChat, onNewTutorChat, onDeleteChat, user, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  view, setView, chats, activeChatId, onSelectChat, onNewChat, onNewTutorChat, 
+  onDeleteChat, user, onLogout, mobileOpen, onMobileClose 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'tutor' | 'study'>('all');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -44,10 +49,22 @@ const Sidebar: React.FC<SidebarProps> = ({ view, setView, chats, activeChatId, o
     });
 
   return (
-    <div className="w-80 bg-sidebar border-r border-border flex flex-col h-full z-50 flex-shrink-0 transition-colors duration-300">
+    <div 
+      className={`fixed inset-y-0 left-0 z-50 w-80 bg-sidebar border-r border-border flex flex-col h-full transition-transform duration-300 shadow-2xl lg:shadow-none lg:relative lg:translate-x-0 ${
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      {/* Mobile Close Button */}
+      <button 
+        onClick={onMobileClose}
+        className="lg:hidden absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-text-muted hover:text-text-main"
+      >
+        <i className="fas fa-times"></i>
+      </button>
+
       {/* Top Section: Logo & Nav */}
       <div className="p-6 flex flex-col">
-        <div className="flex items-center gap-3 mb-8 px-2 cursor-pointer group" onClick={() => setView('dashboard')}>
+        <div className="flex items-center gap-3 mb-8 px-2 cursor-pointer group" onClick={() => { setView('dashboard'); onMobileClose(); }}>
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 group-hover:scale-105 transition-transform">
             <i className="fas fa-graduation-cap text-lg"></i>
           </div>
