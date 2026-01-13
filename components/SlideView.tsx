@@ -19,23 +19,37 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
+    let isActive = true; // Cleanup flag
+
     const loadCurrentSlideImage = async () => {
+      // If image exists or is already loading for THIS index, skip
       if (images[index] || imageLoading[index]) return;
       
       setImageLoading(prev => ({ ...prev, [index]: true }));
       try {
         const slide = slides[index];
         const imageUrl = await generateSlideImage(slide.slideTitle, slide.bullets.join(' '));
-        setImages(prev => ({ ...prev, [index]: imageUrl }));
+        
+        if (isActive) {
+           setImages(prev => ({ ...prev, [index]: imageUrl }));
+        }
       } catch (err) {
         console.error("Slide image load error:", err);
       } finally {
-        setImageLoading(prev => ({ ...prev, [index]: false }));
+        if (isActive) {
+          setImageLoading(prev => ({ ...prev, [index]: false }));
+        }
       }
     };
 
-    if (slides.length > 0) loadCurrentSlideImage();
-  }, [index, slides, images, imageLoading]);
+    if (slides && slides.length > 0) {
+        loadCurrentSlideImage();
+    }
+
+    return () => {
+        isActive = false; // Cancel state updates if component unmounts or index changes
+    };
+  }, [index, slides]); // Removed images/imageLoading from dependency array to prevent loops
 
   if (!slides || slides.length === 0) return null;
 

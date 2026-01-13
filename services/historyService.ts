@@ -1,32 +1,46 @@
 
 import { ChatSession, LabAsset, AIMode, Message } from '../types';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { db } from './db';
 
 /**
  * Cloud Sync State Tracker
- * We use this to prevent repeated 404/403 errors if the tables don't exist yet.
  */
 let cloudSyncActive = {
-  chats: true,
-  assets: true
+  chats: isSupabaseConfigured,
+  assets: isSupabaseConfigured
+};
+
+/**
+ * Wraps a promise with a timeout.
+ */
+const withTimeout = <T>(promise: Promise<T>, ms: number = 2000, fallback: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+  ]);
 };
 
 const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
-  // If we get a 404 (Not Found) or 403 (Forbidden/RLS) it usually means tables are missing
-  if (error.code === 'PGRST204' || error.code === 'PGRST205' || error.status === 404 || error.message?.includes('not found')) {
+  // If we get connection errors, 404s, or auth errors, downgrade to local mode
+  if (
+    error.code === 'PGRST204' || 
+    error.code === 'PGRST205' || 
+    error.status === 404 || 
+    error.message?.includes('not found') ||
+    error.message?.includes('Failed to fetch') ||
+    error.message?.includes('Invalid API key')
+  ) {
     if (cloudSyncActive[feature]) {
-      console.warn(`Supabase ${feature} table not found. Switching to highly-available Local Mode.`);
+      console.warn(`Supabase ${feature} sync disabled: ${error.message || 'Connection failed'}. Switching to Local Mode.`);
       cloudSyncActive[feature] = false;
     }
   }
 };
 
 export const saveChat = async (userId: string, chat: ChatSession) => {
-  // 1. Local storage is the source of truth for immediate responsiveness
   await db.saveChat(chat);
 
-  // 2. Cloud Sync (Async)
   if (!cloudSyncActive.chats) return;
 
   try {
@@ -40,21 +54,26 @@ export const saveChat = async (userId: string, chat: ChatSession) => {
         updated_at: new Date().toISOString()
       });
     if (error) handleSupabaseError(error, 'chats');
-  } catch (e) {}
+  } catch (e: any) {
+    handleSupabaseError(e, 'chats');
+  }
 };
 
 export const getHistory = async (userId: string): Promise<ChatSession[]> => {
-  // Always get local first
   const localHistory = await db.getChats(userId);
   
   if (!cloudSyncActive.chats) return localHistory;
 
   try {
-    const { data, error } = await supabase
-      .from('chats')
-      .select('*, messages(*)')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+    const { data, error } = await withTimeout(
+      supabase
+        .from('chats')
+        .select('*, messages(*)')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false }) as any,
+      2500,
+      { data: null, error: null } as any
+    );
 
     if (error) {
       handleSupabaseError(error, 'chats');
@@ -77,11 +96,11 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
         updatedAt: new Date(chat.updated_at).getTime()
       }));
 
-      // In a real app, we would merge synced and localHistory here.
-      // For now, if we have cloud data, we use it to ensure cross-device consistency.
       return synced;
     }
-  } catch (e) {}
+  } catch (e: any) {
+    handleSupabaseError(e, 'chats');
+  }
 
   return localHistory;
 };
@@ -97,7 +116,6 @@ export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatS
     updatedAt: Date.now()
   };
 
-  // Save locally first
   await db.saveChat(newChat);
 
   if (cloudSyncActive.chats) {
@@ -107,7 +125,9 @@ export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatS
         .insert([{ id: newChat.id, user_id: userId, mode, title: 'New Discussion' }]);
       
       if (error) handleSupabaseError(error, 'chats');
-    } catch (err) {}
+    } catch (err: any) {
+      handleSupabaseError(err, 'chats');
+    }
   }
 
   return newChat;
@@ -118,7 +138,9 @@ export const deleteChat = async (userId: string, id: string) => {
   if (cloudSyncActive.chats) {
     try {
       await supabase.from('chats').delete().eq('id', id);
-    } catch (e) {}
+    } catch (e: any) {
+      handleSupabaseError(e, 'chats');
+    }
   }
 };
 
@@ -145,7 +167,9 @@ export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'ti
           source_name: asset.sourceName
         }]);
       if (error) handleSupabaseError(error, 'assets');
-    } catch (e) {}
+    } catch (e: any) {
+      handleSupabaseError(e, 'assets');
+    }
   }
 };
 
@@ -154,11 +178,15 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
   if (!cloudSyncActive.assets) return localAssets;
 
   try {
-    const { data, error } = await supabase
-      .from('assets')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const { data, error } = await withTimeout(
+      supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }) as any,
+      2500, 
+      { data: null, error: null } as any
+    );
 
     if (error) {
       handleSupabaseError(error, 'assets');
@@ -176,7 +204,9 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
         timestamp: new Date(asset.created_at).getTime()
       }));
     }
-  } catch (e) {}
+  } catch (e: any) {
+    handleSupabaseError(e, 'assets');
+  }
 
   return localAssets;
 };
@@ -186,7 +216,9 @@ export const deleteAsset = async (userId: string, id: string) => {
   if (cloudSyncActive.assets) {
     try {
       await supabase.from('assets').delete().eq('id', id);
-    } catch (e) {}
+    } catch (e: any) {
+      handleSupabaseError(e, 'assets');
+    }
   }
 };
 
@@ -195,6 +227,8 @@ export const clearAllAssets = async (userId: string) => {
   if (cloudSyncActive.assets) {
     try {
       await supabase.from('assets').delete().eq('user_id', userId);
-    } catch (e) {}
+    } catch (e: any) {
+      handleSupabaseError(e, 'assets');
+    }
   }
 };

@@ -22,27 +22,34 @@ const App: React.FC = () => {
   const [isAppLoading, setIsAppLoading] = useState(true);
 
   useEffect(() => {
-    // SECURITY: Limit initialization time. The app should show login or dashboard within 5s.
-    const hardTimeout = setTimeout(() => {
-      if (isAppLoading) {
-        setIsAppLoading(false);
-      }
-    }, 5000);
+    // 1. HARD FAILSAFE: Force loading off after 2.5 seconds no matter what.
+    const hardStop = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 2500);
 
     const init = async () => {
       try {
         const session = await getCurrentSession();
         if (session) {
           setAuth({ user: session.user, token: session.token, isAuthenticated: true });
-          await loadUserData(session.user.id);
+          
+          // Parallel fetch with error suppression to prevent crashes
+          const [history, savedAssets] = await Promise.all([
+            getHistory(session.user.id).catch(err => { console.warn('History load failed', err); return []; }),
+            getAssets(session.user.id).catch(err => { console.warn('Assets load failed', err); return []; })
+          ]);
+          
+          setChats(history);
+          setAssets(savedAssets);
         }
       } catch (e) {
-        console.error("Initialization error:", e);
+        console.warn("Initialization encountered non-fatal error:", e);
       } finally {
+        // Normal completion
         setIsAppLoading(false);
-        clearTimeout(hardTimeout);
       }
     };
+
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -50,7 +57,12 @@ const App: React.FC = () => {
         const fullSession = await getCurrentSession();
         if (fullSession) {
           setAuth({ user: fullSession.user, token: fullSession.token, isAuthenticated: true });
-          await loadUserData(fullSession.user.id);
+          const [history, savedAssets] = await Promise.all([
+            getHistory(fullSession.user.id).catch(() => []),
+            getAssets(fullSession.user.id).catch(() => [])
+          ]);
+          setChats(history);
+          setAssets(savedAssets);
         }
       } else if (event === 'SIGNED_OUT') {
         setAuth({ user: null, token: null, isAuthenticated: false });
@@ -63,23 +75,9 @@ const App: React.FC = () => {
 
     return () => {
       subscription.unsubscribe();
-      clearTimeout(hardTimeout);
+      clearTimeout(hardStop);
     };
   }, []);
-
-  const loadUserData = async (userId: string) => {
-    if (!userId) return;
-    try {
-      const [history, savedAssets] = await Promise.all([
-        getHistory(userId).catch(() => []),
-        getAssets(userId).catch(() => [])
-      ]);
-      setChats(history);
-      setAssets(savedAssets);
-    } catch (e: any) {
-      console.error("Data load error:", e.message || e);
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -136,7 +134,7 @@ const App: React.FC = () => {
 
   if (isAppLoading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-white">
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-white animate-fadeIn">
         <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Initializing Core AI...</p>
         <p className="text-slate-600 text-[9px] mt-4 uppercase font-bold tracking-widest">Verifying Academic Handshake</p>
@@ -174,6 +172,8 @@ const App: React.FC = () => {
             assets={assets}
             onAction={(target) => setView(target)}
             onNewChat={() => handleNewChat('study')}
+            onOpenChat={(id) => { setActiveChatId(id); setView('chat'); }}
+            onOpenAsset={handleOpenAsset}
           />
         )}
 

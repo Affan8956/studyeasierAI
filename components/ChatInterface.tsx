@@ -23,15 +23,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
 
   useEffect(() => {
     if (chatContainerRef.current && (window as any).renderMathInElement) {
-      (window as any).renderMathInElement(chatContainerRef.current, {
-        delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '$', right: '$', display: false },
-          { left: '\\(', right: '\\)', display: false },
-          { left: '\\[', right: '\\]', display: true }
-        ],
-        throwOnError: false
-      });
+      try {
+        (window as any).renderMathInElement(chatContainerRef.current, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ],
+          throwOnError: false,
+          errorCallback: (msg: string, err: any) => {
+            if (msg.includes("quirks mode")) return;
+            console.warn("KaTeX Error:", msg, err);
+          }
+        });
+      } catch (e) {
+        console.warn("Math rendering skipped due to environment capabilities.");
+      }
     }
   }, [chat?.messages, streamingContent]);
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { login, signup, resendConfirmationEmail } from '../services/authService';
 import { User } from '../types';
@@ -7,7 +8,7 @@ interface AuthFormProps {
 }
 
 const COOLDOWN_TIME = 60;
-const POLLING_INTERVAL = 3000;
+const POLLING_INTERVAL = 3000; // 3 seconds
 
 const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -94,6 +95,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
           startTimer();
         } catch (signupErr: any) {
           if (signupErr.message === 'USER_ALREADY_EXISTS') {
+            // User exists but likely isn't confirmed or they just need to log in
             setError("This email is already registered. If you haven't confirmed it, check your inbox.");
             setStep('waiting');
             startTimer();
@@ -233,7 +235,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
                 className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-4 disabled:opacity-50 disabled:cursor-wait mt-4 uppercase tracking-[0.2em] text-xs"
               >
                 {loading ? <i className="fas fa-circle-notch animate-spin"></i> : <i className={`fas ${isLogin ? 'fa-sign-in-alt' : 'fa-paper-plane'}`}></i>}
-                {isLogin ? 'Login' : 'Create Account'}
+                {isLogin ? 'Initialize Session' : 'Create Account'}
               </button>
             </form>
           ) : (

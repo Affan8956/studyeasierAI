@@ -8,9 +8,11 @@ interface DashboardProps {
   assets: LabAsset[];
   onAction: (target: ViewState) => void;
   onNewChat: () => void;
+  onOpenChat: (id: string) => void;
+  onOpenAsset: (asset: LabAsset) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, onNewChat }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, onNewChat, onOpenChat, onOpenAsset }) => {
   const displayName = user?.name || 'Student';
   const firstName = displayName.split(' ')[0] || 'Student';
 
@@ -85,7 +87,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, on
               </div>
               <div className="space-y-4">
                  {chats.length > 0 ? chats.slice(0, 4).map(chat => (
-                   <div key={chat.id} className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-indigo-500/30 transition-all group">
+                   <div 
+                     key={chat.id} 
+                     onClick={() => onOpenChat(chat.id)}
+                     className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-indigo-500/30 transition-all group cursor-pointer hover:bg-white/5"
+                   >
                       <div className="flex items-center gap-5">
                         <div className="w-8 h-8 rounded-lg bg-indigo-600/10 flex items-center justify-center text-indigo-400">
                            <i className="fas fa-comment-alt text-xs"></i>
@@ -109,7 +115,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, chats, assets, onAction, on
               </div>
               <div className="space-y-4">
                  {assets.length > 0 ? assets.slice(0, 4).map(asset => (
-                   <div key={asset.id} className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-emerald-500/30 transition-all">
+                   <div 
+                     key={asset.id} 
+                     onClick={() => onOpenAsset(asset)}
+                     className="p-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl flex items-center justify-between hover:border-emerald-500/30 transition-all cursor-pointer hover:bg-white/5"
+                   >
                       <div className="flex items-center gap-5">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${asset.type === 'summary' ? 'bg-emerald-600/10 text-emerald-400' : 'bg-amber-600/10 text-amber-400'}`}>
                            <i className={`fas text-xs ${asset.type === 'summary' ? 'fa-file-text' : 'fa-tasks'}`}></i>
