@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState } from './types';
+import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState } from './types';
 import { getCurrentSession, logout } from './services/authService';
 import { getHistory, saveChat, deleteChat, createNewChat, getAssets, saveAsset, deleteAsset, clearAllAssets } from './services/historyService';
-import { processUnifiedLabContent, performDeepResearch } from './services/geminiService';
+import { processUnifiedLabContent, performDeepResearch, analyzeImage } from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 import AuthForm from './components/AuthForm';
 import Sidebar from './components/Sidebar';
@@ -38,6 +38,15 @@ const App: React.FC = () => {
     result: null,
     error: null,
     query: ''
+  });
+
+  const [visionState, setVisionState] = useState<VisionState>({
+    isLoading: false,
+    image: null,
+    mimeType: '',
+    prompt: '',
+    result: null,
+    error: null
   });
 
   useEffect(() => {
@@ -92,6 +101,7 @@ const App: React.FC = () => {
         // Reset background states on logout
         setLabState({ isLoading: false, currentPackage: null, error: null, lastSourceInfo: null, activeTab: 'summary' });
         setResearchState({ isLoading: false, result: null, error: null, query: '' });
+        setVisionState({ isLoading: false, image: null, mimeType: '', prompt: '', result: null, error: null });
       }
     });
 
@@ -101,23 +111,8 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Logic to handle "AI Tutor" button from sidebar
-  useEffect(() => {
-    const handleTutorView = async () => {
-      if (view === 'tutor' && auth.user && !isInitializingChat) {
-        // Find latest active tutor chat
-        const tutorChat = chats.find(c => c.mode === 'tutor');
-        if (tutorChat) {
-          setActiveChatId(tutorChat.id);
-        } else {
-          // Create new one if none exists
-          await handleNewChat('tutor');
-        }
-      }
-    };
-    handleTutorView();
-  }, [view]); // Run when view changes
-
+  // Logic to handle "AI Tutor" button from sidebar is now handled via explicit handlers in Sidebar
+  
   const handleLogout = async () => {
     await logout();
   };
@@ -130,7 +125,9 @@ const App: React.FC = () => {
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat.id);
       // For tutor mode, we stay in 'tutor' view state but use ChatInterface
-      if (mode !== 'tutor') {
+      if (mode === 'tutor') {
+        setView('tutor');
+      } else {
         setView('chat');
       }
     } catch (e: any) {
@@ -160,8 +157,8 @@ const App: React.FC = () => {
     setAssets(prev => prev.filter(a => a.id !== id));
     
     // Clear viewing state if deleted
-    if (labState.currentPackage && labState.currentPackage.id === id) { // This check is approximate since package doesn't hold ID usually
-       // logic to clear lab state if needed, but currentPackage is usually ephemeral or hydrated.
+    if (labState.currentPackage && labState.currentPackage.id === id) {
+       // logic to clear lab state if needed
     }
   };
 
@@ -171,6 +168,7 @@ const App: React.FC = () => {
     setAssets([]);
     setLabState(prev => ({ ...prev, currentPackage: null, activeTab: 'summary' }));
     setResearchState(prev => ({ ...prev, result: null }));
+    setVisionState(prev => ({ ...prev, result: null, image: null }));
   };
 
   const handleOpenAsset = (asset: LabAsset) => {
@@ -188,6 +186,14 @@ const App: React.FC = () => {
       });
       setView('research');
     } else if (asset.type === 'image_analysis') {
+      setVisionState({
+        isLoading: false,
+        image: null, // Don't reload base64 from DB to save bandwidth, unless we stored it
+        mimeType: '',
+        prompt: asset.title,
+        result: asset.content,
+        error: null
+      });
       setView('vision');
     } else {
       // Reconstruct package structure for LabPanel
@@ -256,6 +262,31 @@ const App: React.FC = () => {
     }
   };
 
+  const handleVisionAnalyze = async (image: string, mimeType: string, prompt: string) => {
+    setVisionState({ isLoading: true, image, mimeType, prompt, result: null, error: null });
+
+    try {
+      const base64Data = image.split(',')[1];
+      const analysisText = await analyzeImage(base64Data, mimeType, prompt);
+      setVisionState(prev => ({ ...prev, isLoading: false, result: analysisText }));
+
+      // Auto-save result
+      await handleSaveAsset({
+        title: prompt ? `Analysis: ${prompt.slice(0, 20)}...` : 'Image Analysis',
+        type: 'image_analysis',
+        content: analysisText,
+        sourceName: 'Gemini Vision Engine'
+      });
+
+    } catch (err: any) {
+      setVisionState(prev => ({ ...prev, isLoading: false, error: err.message || "Analysis failed" }));
+    }
+  };
+
+  const handleVisionUpdate = (newState: Partial<VisionState>) => {
+    setVisionState(prev => ({ ...prev, ...newState }));
+  };
+
   const handleClearLab = () => {
     setLabState({ isLoading: false, currentPackage: null, error: null, lastSourceInfo: null, activeTab: 'summary' });
   };
@@ -306,7 +337,8 @@ const App: React.FC = () => {
         chats={chats}
         activeChatId={activeChatId}
         onSelectChat={(id) => { setActiveChatId(id); setView('chat'); }}
-        onNewChat={() => handleNewChat()}
+        onNewChat={() => handleNewChat('study')}
+        onNewTutorChat={() => handleNewChat('tutor')}
         onDeleteChat={handleDeleteChat}
         user={auth.user!}
         onLogout={handleLogout}
@@ -346,9 +378,9 @@ const App: React.FC = () => {
 
         {view === 'vision' && (
           <VisionPanel 
-            onSaveAsset={handleSaveAsset} 
-            savedAssets={assets}
-            viewingAsset={viewingAsset?.type === 'image_analysis' ? viewingAsset : null}
+            state={visionState}
+            onAnalyze={handleVisionAnalyze}
+            onUpdateState={handleVisionUpdate}
           />
         )}
 

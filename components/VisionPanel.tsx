@@ -1,86 +1,60 @@
 
-import React, { useState, useRef } from 'react';
-import { analyzeImage } from '../services/geminiService';
-import { LabAsset } from '../types';
+import React, { useRef } from 'react';
+import { VisionState } from '../types';
 import SummaryView from './SummaryView';
 
 interface VisionPanelProps {
-  onSaveAsset: (asset: Omit<LabAsset, 'id' | 'timestamp' | 'userId'>) => void;
-  savedAssets?: LabAsset[];
-  viewingAsset?: LabAsset | null;
+  state: VisionState;
+  onAnalyze: (image: string, mimeType: string, prompt: string) => void;
+  onUpdateState: (newState: Partial<VisionState>) => void;
 }
 
-const VisionPanel: React.FC<VisionPanelProps> = ({ onSaveAsset, savedAssets = [], viewingAsset }) => {
-  const [image, setImage] = useState<string | null>(null);
-  const [mimeType, setMimeType] = useState<string>('');
-  const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const VisionPanel: React.FC<VisionPanelProps> = ({ state, onAnalyze, onUpdateState }) => {
+  const { image, mimeType, prompt, loading, result, error } = {
+      image: state.image,
+      mimeType: state.mimeType,
+      prompt: state.prompt,
+      loading: state.isLoading,
+      result: state.result,
+      error: state.error
+  };
 
-  // Load from asset if provided
-  React.useEffect(() => {
-    if (viewingAsset && viewingAsset.type === 'image_analysis') {
-      setResult(viewingAsset.content);
-      // We don't store the base64 image in the simplified asset model for now to save DB space,
-      // so we just show the text result.
-      setImage(null); 
-    }
-  }, [viewingAsset]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (!file.type.startsWith('image/')) {
-        setError("Please upload a valid image file.");
+        onUpdateState({ error: "Please upload a valid image file." });
         return;
       }
       
       const reader = new FileReader();
       reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        setImage(reader.result as string); // For preview
-        setMimeType(file.type);
-        setError(null);
-        setResult(null);
+        onUpdateState({
+            image: reader.result as string,
+            mimeType: file.type,
+            error: null,
+            result: null
+        });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
     if (!image || !mimeType) return;
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      // Extract pure base64 for API
-      const base64Data = image.split(',')[1];
-      const analysisText = await analyzeImage(base64Data, mimeType, prompt);
-      setResult(analysisText);
-
-      // Auto-save result
-      onSaveAsset({
-        title: prompt ? `Analysis: ${prompt.slice(0, 20)}...` : 'Image Analysis',
-        type: 'image_analysis',
-        content: analysisText,
-        sourceName: 'Gemini Vision Engine'
-      });
-
-    } catch (err: any) {
-      setError(err.message || "Failed to analyze image.");
-    } finally {
-      setLoading(false);
-    }
+    onAnalyze(image, mimeType, prompt);
   };
 
   const clearImage = () => {
-    setImage(null);
-    setMimeType('');
-    setResult(null);
-    setPrompt('');
+    onUpdateState({
+        image: null,
+        mimeType: '',
+        result: null,
+        prompt: '',
+        error: null
+    });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -137,7 +111,7 @@ const VisionPanel: React.FC<VisionPanelProps> = ({ onSaveAsset, savedAssets = []
                    </label>
                    <textarea
                      value={prompt}
-                     onChange={(e) => setPrompt(e.target.value)}
+                     onChange={(e) => onUpdateState({ prompt: e.target.value })}
                      placeholder="e.g. 'Explain this diagram', 'Solve this equation', 'Extract text'..."
                      className="w-full bg-[#0a0a0a] border border-slate-700 rounded-2xl p-4 text-sm text-slate-200 focus:border-purple-500 outline-none resize-none h-32 mb-6"
                    ></textarea>
@@ -167,6 +141,17 @@ const VisionPanel: React.FC<VisionPanelProps> = ({ onSaveAsset, savedAssets = []
           <div className="p-6 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-center mb-8 font-medium">
              <i className="fas fa-exclamation-circle mr-2"></i> {error}
           </div>
+        )}
+
+        {loading && !result && (
+             <div className="space-y-4 animate-fadeIn text-center mb-8">
+                <p className="text-purple-400 font-black uppercase tracking-widest text-xs">
+                   <i className="fas fa-satellite-dish animate-pulse mr-2"></i> Analyzing Visual Data...
+                </p>
+                <p className="text-slate-600 text-[10px] uppercase font-bold">
+                  Background Task Active
+                </p>
+             </div>
         )}
 
         {result && (

@@ -86,3 +86,12 @@ export interface ResearchState {
   error: string | null;
   query: string;
 }
+
+export interface VisionState {
+  isLoading: boolean;
+  image: string | null; // Base64 data URI for preview
+  mimeType: string;
+  prompt: string;
+  result: string | null;
+  error: string | null;
+}
