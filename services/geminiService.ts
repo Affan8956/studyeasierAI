@@ -165,6 +165,45 @@ export const generateSlideImage = async (title: string, context: string): Promis
   }
 };
 
+// --- IMAGE ANALYSIS (VISION) ---
+export const analyzeImage = async (base64Image: string, mimeType: string, prompt: string): Promise<string> => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key not found.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const imagePart = {
+    inlineData: {
+      data: base64Image,
+      mimeType: mimeType
+    }
+  };
+
+  const textPart = {
+    text: prompt || "Analyze this image in detail. If it contains text or math, transcribe and explain it."
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: PRO_MODEL, // Using Pro for complex reasoning on images (math/charts)
+      contents: { parts: [imagePart, textPart] },
+      config: {
+        systemInstruction: `You are an expert Visual Analyst and Tutor. 
+        1. Analyze the provided image deeply. 
+        2. If it contains Math: Solve it step-by-step using LaTeX ($...$).
+        3. If it contains Text: Transcribe it and summarize key points.
+        4. If it's a Diagram: Explain the components and relationships.
+        5. Format output with clear Markdown headers.`,
+        thinkingConfig: { thinkingBudget: 10240 }, // High reasoning budget for visual analysis
+      }
+    });
+
+    return response.text || "Could not analyze image.";
+  } catch (error: any) {
+    throw new Error(error.message || "Image Analysis Failed");
+  }
+};
+
 // --- UNIFIED LAB PROCESSING ---
 export const processUnifiedLabContent = async (
   source: { file?: { base64: string; mimeType: string }; url?: string }

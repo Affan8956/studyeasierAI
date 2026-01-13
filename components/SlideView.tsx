@@ -19,10 +19,9 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    let isActive = true; // Cleanup flag
+    let isActive = true;
 
     const loadCurrentSlideImage = async () => {
-      // If image exists or is already loading for THIS index, skip
       if (images[index] || imageLoading[index]) return;
       
       setImageLoading(prev => ({ ...prev, [index]: true }));
@@ -47,9 +46,9 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
     }
 
     return () => {
-        isActive = false; // Cancel state updates if component unmounts or index changes
+        isActive = false;
     };
-  }, [index, slides]); // Removed images/imageLoading from dependency array to prevent loops
+  }, [index, slides]); 
 
   if (!slides || slides.length === 0) return null;
 
@@ -72,6 +71,36 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-20 relative">
+      {/* PRINT VIEW: Handouts Style */}
+      <div className="print-only">
+        <div className="mb-8 border-b-2 border-black pb-4">
+           <h1 className="text-3xl font-black text-black">Presentation Handouts</h1>
+           <p className="text-sm text-gray-500 uppercase tracking-widest">StudyEasierAI Generated Deck</p>
+        </div>
+        <div className="space-y-8">
+           {slides.map((s, i) => (
+             <div key={i} className="break-inside-avoid border-b border-gray-200 pb-8 mb-8">
+                <div className="flex justify-between items-baseline mb-4">
+                   <h2 className="text-xl font-bold text-black">{s.slideTitle}</h2>
+                   <span className="text-xs font-bold bg-gray-200 text-gray-700 px-2 py-1 rounded">Slide {i+1}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-8">
+                   <ul className="list-disc pl-5 space-y-2">
+                      {s.bullets.map((b, bi) => (
+                        <li key={bi} className="text-sm text-gray-800">{b}</li>
+                      ))}
+                   </ul>
+                   <div className="bg-gray-50 p-4 border border-gray-200 rounded text-sm italic text-gray-600">
+                      <strong>Speaker Notes:</strong><br/>
+                      {s.speakerNotes}
+                   </div>
+                </div>
+             </div>
+           ))}
+        </div>
+      </div>
+
+      {/* WEB VIEW */}
       <div className="no-print slide-container flex flex-col bg-[#111111] rounded-[2rem] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[650px] transition-all duration-500">
         
         <div className="absolute top-8 right-8 z-20">
@@ -152,7 +181,7 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
       </div>
 
       {/* Speaker Notes */}
-      <div className="p-10 bg-[#121212] rounded-[2rem] border border-slate-800 shadow-xl border-t-4 border-t-emerald-500/50">
+      <div className="p-10 bg-[#121212] rounded-[2rem] border border-slate-800 shadow-xl border-t-4 border-t-emerald-500/50 no-print">
         <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
           <i className="fas fa-microphone-alt text-emerald-500 text-lg"></i>
           Expert Presentation Script
@@ -162,7 +191,7 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-center gap-6">
+      <div className="flex flex-col sm:flex-row justify-center gap-6 no-print">
         <button 
           onClick={() => window.print()}
           className="px-12 py-6 bg-white text-black rounded-2xl font-black text-sm hover:bg-slate-200 transition-all shadow-2xl flex items-center justify-center gap-4 uppercase tracking-widest"

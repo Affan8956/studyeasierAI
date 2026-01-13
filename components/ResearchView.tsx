@@ -1,70 +1,34 @@
 
-import React, { useState, useEffect } from 'react';
-import { performDeepResearch } from '../services/geminiService';
-import { GroundingChunk, LabAsset } from '../types';
+import React, { useState } from 'react';
+import { LabAsset, ResearchState } from '../types';
 import SummaryView from './SummaryView';
 
 interface ResearchViewProps {
-  onSaveAsset?: (asset: Omit<LabAsset, 'id' | 'timestamp' | 'userId'>) => void;
+  state: ResearchState;
+  onSearch: (query: string) => void;
   savedResearch?: LabAsset[];
   onLoadResearch?: (asset: LabAsset) => void;
-  viewingAsset?: LabAsset | null; // Pass in asset if we opened from Vault
 }
 
-const ResearchView: React.FC<ResearchViewProps> = ({ onSaveAsset, savedResearch = [], onLoadResearch, viewingAsset }) => {
-  const [query, setQuery] = useState('');
-  const [result, setResult] = useState<{ text: string; groundingChunks: GroundingChunk[] } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResearch = [], onLoadResearch }) => {
+  const { isLoading, result, error, query: activeQuery } = state;
+  const [inputQuery, setInputQuery] = useState(activeQuery || '');
   const [showHistory, setShowHistory] = useState(false);
 
-  // Load viewing asset if passed
-  useEffect(() => {
-    if (viewingAsset && viewingAsset.type === 'research') {
-      setResult({
-        text: viewingAsset.content,
-        groundingChunks: [] // Saved assets currently store just text content, or we need to expand structure. Assuming text for now.
-      });
-      setQuery(viewingAsset.title);
-    }
-  }, [viewingAsset]);
+  // Sync input when active query changes externally (e.g. from history load)
+  React.useEffect(() => {
+    setInputQuery(activeQuery);
+  }, [activeQuery]);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
-
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const data = await performDeepResearch(query);
-      setResult(data);
-      
-      // Auto-save history
-      if (onSaveAsset) {
-        onSaveAsset({
-          title: query.charAt(0).toUpperCase() + query.slice(1),
-          type: 'research',
-          content: data.text,
-          sourceName: 'Deep Research Agent'
-        });
-      }
-    } catch (err: any) {
-      setError(err.message || "Research failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    if (!inputQuery.trim()) return;
+    onSearch(inputQuery);
   };
 
   const handleLoadHistory = (asset: LabAsset) => {
-    setResult({
-      text: asset.content,
-      groundingChunks: [] // Historic chunks might not be saved in simplified content model yet
-    });
-    setQuery(asset.title);
-    setShowHistory(false);
     if(onLoadResearch) onLoadResearch(asset);
+    setShowHistory(false);
   };
 
   return (
@@ -115,7 +79,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onSaveAsset, savedResearch 
              <p className="text-slate-500">Live web grounding via Google Search + Gemini 3 Flash.</p>
           </header>
 
-          {!result && !loading && !error && (
+          {!result && !isLoading && !error && (
             <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-3xl">
                <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Enter a complex topic to begin analysis</p>
             </div>
@@ -127,7 +91,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onSaveAsset, savedResearch 
             </div>
           )}
 
-          {loading && (
+          {isLoading && (
              <div className="space-y-8 animate-fadeIn">
                 <div className="flex items-center gap-4 justify-center text-cyan-400 font-black uppercase tracking-widest text-xs">
                    <i className="fas fa-satellite-dish animate-pulse"></i> Scanning Global Indices...
@@ -138,12 +102,15 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onSaveAsset, savedResearch 
                    <div className="h-24 bg-slate-900/50 rounded-2xl animate-pulse delay-150"></div>
                    <div className="h-24 bg-slate-900/50 rounded-2xl animate-pulse delay-200"></div>
                 </div>
+                <p className="text-center text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+                  Processing in background... You can switch tabs safely.
+                </p>
              </div>
           )}
 
           {result && (
             <div className="animate-fadeIn space-y-12">
-              <SummaryView summary={result.text} title={query} />
+              <SummaryView summary={result.text} title={activeQuery} />
 
               {/* Source Verification Nodes */}
               {result.groundingChunks.length > 0 && (
@@ -182,20 +149,20 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onSaveAsset, savedResearch 
       </div>
 
       <div className="p-6 md:p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0d0d0d] via-[#0d0d0d] to-transparent z-10">
-        <form onSubmit={handleSearch} className="max-w-3xl mx-auto relative">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
           <input
             type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={inputQuery}
+            onChange={(e) => setInputQuery(e.target.value)}
             placeholder="Search the live web..."
             className="w-full bg-[#151515] border border-slate-800 rounded-2xl px-6 py-5 pr-16 text-sm text-slate-200 outline-none transition-all focus:border-cyan-500 shadow-2xl focus:ring-1 focus:ring-cyan-500/20"
           />
           <button
             type="submit"
-            disabled={!query.trim() || loading}
+            disabled={!inputQuery.trim() || isLoading}
             className="absolute right-2 top-2 bottom-2 w-14 rounded-xl bg-cyan-600 text-white flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-600/20"
           >
-            <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-search'}`}></i>
+            <i className={`fas ${isLoading ? 'fa-spinner fa-spin' : 'fa-search'}`}></i>
           </button>
         </form>
       </div>

@@ -1,7 +1,7 @@
 
 export type AIMode = 'study' | 'coding' | 'writing' | 'tutor' | 'research';
-export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor';
-export type LabTool = 'summary' | 'quiz' | 'slides' | 'flashcards' | 'research';
+export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor' | 'vision';
+export type LabTool = 'summary' | 'quiz' | 'slides' | 'flashcards' | 'research' | 'image_analysis';
 
 export interface User {
   id: string;
@@ -70,4 +70,19 @@ export interface GroundingChunk {
     uri: string;
     title: string;
   };
+}
+
+export interface LabState {
+  isLoading: boolean;
+  currentPackage: any | null;
+  error: string | null;
+  lastSourceInfo: string | null;
+  activeTab?: LabTool;
+}
+
+export interface ResearchState {
+  isLoading: boolean;
+  result: { text: string; groundingChunks: GroundingChunk[] } | null;
+  error: string | null;
+  query: string;
 }

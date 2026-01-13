@@ -14,7 +14,7 @@ let cloudSyncActive = {
 /**
  * Wraps a promise with a timeout.
  */
-const withTimeout = <T>(promise: Promise<T>, ms: number = 2000, fallback: T): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, ms: number = 5000, fallback: T): Promise<T> => {
   return Promise.race([
     promise,
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
@@ -22,6 +22,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 2000, fallback: T): Pr
 };
 
 const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
+  console.warn(`Supabase ${feature} error:`, error.message || error);
   // If we get connection errors, 404s, or auth errors, downgrade to local mode
   if (
     error.code === 'PGRST204' || 
@@ -38,10 +39,16 @@ const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
   }
 };
 
+const isValidUUID = (id: string) => {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return regex.test(id);
+};
+
 export const saveChat = async (userId: string, chat: ChatSession) => {
   await db.saveChat(chat);
 
   if (!cloudSyncActive.chats) return;
+  if (!isValidUUID(userId)) return; // Don't try to save to cloud for local-only users
 
   try {
     const { error } = await supabase
@@ -64,15 +71,16 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
   const localHistory = await db.getChats(userId);
   
   if (!cloudSyncActive.chats) return localHistory;
+  if (!isValidUUID(userId)) return localHistory;
 
   try {
     const { data, error } = await withTimeout(
       supabase
         .from('chats')
-        .select('*') // Removed messages(*) relation, assuming JSONB column
+        .select('*') 
         .eq('user_id', userId)
         .order('updated_at', { ascending: false }) as any,
-      2500,
+      5000,
       { data: null, error: null } as any
     );
 
@@ -81,13 +89,12 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
       return localHistory;
     }
 
-    if (data && data.length > 0) {
+    if (data) {
       const synced = data.map((chat: any) => ({
         id: chat.id,
         userId: chat.user_id,
         title: chat.title,
         mode: chat.mode,
-        // Handle messages whether they are an array (JSONB) or null
         messages: Array.isArray(chat.messages) ? chat.messages.map((m: any) => ({
           id: m.id,
           role: m.role,
@@ -98,7 +105,9 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
         updatedAt: new Date(chat.updated_at).getTime()
       }));
 
-      return synced;
+      // Merge strategy: if cloud has data, it generally wins, but we should probably respect local if it's newer. 
+      // For simplicity in this app, Cloud is Source of Truth if available.
+      if (synced.length > 0) return synced;
     }
   } catch (e: any) {
     handleSupabaseError(e, 'chats');
@@ -120,7 +129,7 @@ export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatS
 
   await db.saveChat(newChat);
 
-  if (cloudSyncActive.chats) {
+  if (cloudSyncActive.chats && isValidUUID(userId)) {
     try {
       const { error } = await supabase
         .from('chats')
@@ -143,7 +152,7 @@ export const createNewChat = async (userId: string, mode: AIMode): Promise<ChatS
 
 export const deleteChat = async (userId: string, id: string) => {
   await db.deleteChat(id);
-  if (cloudSyncActive.chats) {
+  if (cloudSyncActive.chats && isValidUUID(userId)) {
     try {
       await supabase.from('chats').delete().eq('id', id);
     } catch (e: any) {
@@ -162,8 +171,14 @@ export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'ti
 
   await db.saveAsset(fullAsset);
 
-  if (cloudSyncActive.assets) {
+  if (cloudSyncActive.assets && isValidUUID(userId)) {
     try {
+      // Ensure content is compatible with JSONB. 
+      // If it's a string (summary), we wrap it if needed, or rely on client.
+      // Supabase JS client handles strings for JSONB columns by treating them as JSON strings.
+      // However, if the string contains special chars, it might fail if not stringified.
+      // For safety, we can ensure we are passing what we expect.
+      
       const { error } = await supabase
         .from('assets')
         .insert([{
@@ -171,7 +186,7 @@ export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'ti
           user_id: userId,
           title: asset.title,
           type: asset.type,
-          content: asset.content,
+          content: asset.content, // Supabase client should handle object/array/string auto-serialization
           source_name: asset.sourceName
         }]);
       if (error) handleSupabaseError(error, 'assets');
@@ -184,6 +199,7 @@ export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'ti
 export const getAssets = async (userId: string): Promise<LabAsset[]> => {
   const localAssets = await db.getAssets(userId);
   if (!cloudSyncActive.assets) return localAssets;
+  if (!isValidUUID(userId)) return localAssets;
 
   try {
     const { data, error } = await withTimeout(
@@ -192,7 +208,7 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }) as any,
-      2500, 
+      5000, 
       { data: null, error: null } as any
     );
 
@@ -201,16 +217,23 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
       return localAssets;
     }
 
-    if (data && data.length > 0) {
-      return data.map((asset: any) => ({
+    if (data) {
+      const synced = data.map((asset: any) => ({
         id: asset.id,
         userId: asset.user_id,
         title: asset.title,
         type: asset.type,
-        content: asset.content, // Content is expected to be JSONB
+        content: asset.content, 
         sourceName: asset.source_name,
         timestamp: new Date(asset.created_at).getTime()
       }));
+      
+      // If cloud has data, return it.
+      // If cloud returns empty array (data exists but length 0), it means user has no assets in cloud.
+      // In that case, we should return empty array, NOT localAssets, because localAssets might be stale/empty on new device.
+      // However, if the user was working offline, localAssets might have unsynced data.
+      // For this simplified app, we assume Cloud is master. 
+      return synced;
     }
   } catch (e: any) {
     handleSupabaseError(e, 'assets');
@@ -221,7 +244,7 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
 
 export const deleteAsset = async (userId: string, id: string) => {
   await db.deleteAsset(id);
-  if (cloudSyncActive.assets) {
+  if (cloudSyncActive.assets && isValidUUID(userId)) {
     try {
       await supabase.from('assets').delete().eq('id', id);
     } catch (e: any) {
@@ -232,7 +255,7 @@ export const deleteAsset = async (userId: string, id: string) => {
 
 export const clearAllAssets = async (userId: string) => {
   await db.clearAssets(userId);
-  if (cloudSyncActive.assets) {
+  if (cloudSyncActive.assets && isValidUUID(userId)) {
     try {
       await supabase.from('assets').delete().eq('user_id', userId);
     } catch (e: any) {

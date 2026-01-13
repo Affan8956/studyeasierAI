@@ -74,6 +74,13 @@ const Sidebar: React.FC<SidebarProps> = ({ view, setView, chats, activeChatId, o
           >
             <i className="fas fa-globe-americas w-5 text-center"></i> Deep Research
           </button>
+          
+          <button 
+            onClick={() => setView('vision')}
+            className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all text-sm ${view === 'vision' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
+          >
+            <i className="fas fa-eye w-5 text-center"></i> Image Analysis
+          </button>
 
           <button 
             onClick={() => setView('lab')}

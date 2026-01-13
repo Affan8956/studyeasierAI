@@ -11,7 +11,7 @@ interface VaultProps {
 }
 
 const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset, onClearAll }) => {
-  const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'flashcards' | 'slides' | 'research'>('all');
+  const [filter, setFilter] = useState<'all' | 'summary' | 'quiz' | 'flashcards' | 'slides' | 'research' | 'image_analysis'>('all');
   const [search, setSearch] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
 
@@ -59,6 +59,12 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
         text: 'text-cyan-400', 
         accent: 'bg-cyan-500' 
       };
+      case 'image_analysis': return { 
+        icon: 'fa-eye', 
+        bg: 'bg-purple-600/20', 
+        text: 'text-purple-400', 
+        accent: 'bg-purple-500' 
+      };
       default: return { 
         icon: 'fa-file', 
         bg: 'bg-slate-600/20', 
@@ -101,13 +107,13 @@ const Vault: React.FC<VaultProps> = ({ assets, chats, onViewAsset, onDeleteAsset
 
            {/* Filter Tabs */}
            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar flex-1">
-            {(['all', 'summary', 'quiz', 'flashcards', 'slides', 'research'] as const).map(f => (
+            {(['all', 'summary', 'quiz', 'flashcards', 'slides', 'research', 'image_analysis'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${filter === f ? 'bg-indigo-600 text-white shadow-lg' : 'bg-[#151515] text-slate-500 hover:text-white hover:bg-slate-800'}`}
               >
-                {f}
+                {f.replace('_', ' ')}
               </button>
             ))}
            </div>

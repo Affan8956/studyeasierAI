@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LabTool, LabAsset } from '../types';
-import { processUnifiedLabContent } from '../services/geminiService';
+import { LabTool, LabAsset, LabState } from '../types';
 import FileUpload from './FileUpload';
 import SummaryView from './SummaryView';
 import QuizView from './QuizView';
@@ -20,98 +19,52 @@ const LOADING_STATUSES = [
 ];
 
 interface LabPanelProps {
+  state: LabState;
+  onProcess: (sourcePayload: { file?: { base64: string; mimeType: string }; url?: string }, sourceName: string) => void;
+  onClear: () => void;
   onSaveAsset: (asset: Omit<LabAsset, 'id' | 'timestamp' | 'userId'>) => void;
-  viewingAsset?: LabAsset | null;
 }
 
-const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
+const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAsset }) => {
+  const { isLoading, currentPackage, error, activeTab } = state;
   const [activeTool, setActiveTool] = useState<LabTool>('summary');
-  const [loading, setLoading] = useState(false);
   const [statusIndex, setStatusIndex] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPackage, setCurrentPackage] = useState<any>(null);
-  const [lastSourceInfo, setLastSourceInfo] = useState<string | null>(null);
+
+  // Sync activeTool with the requested activeTab from parent state (Vault open)
+  useEffect(() => {
+    if (activeTab) {
+      setActiveTool(activeTab);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     let interval: any;
-    if (loading) {
+    if (isLoading) {
       interval = setInterval(() => {
         setStatusIndex((prev) => (prev + 1) % LOADING_STATUSES.length);
       }, 4000);
     }
     return () => clearInterval(interval);
-  }, [loading]);
-
-  // If viewing a saved asset from the vault
-  useEffect(() => {
-    if (viewingAsset) {
-      setActiveTool(viewingAsset.type);
-      // For viewing existing assets, we wrap them back into our package format
-      const mockPackage: any = { title: viewingAsset.title };
-      if (viewingAsset.type === 'summary') mockPackage.summary = { content: viewingAsset.content };
-      if (viewingAsset.type === 'quiz') mockPackage.quiz = viewingAsset.content;
-      if (viewingAsset.type === 'slides') mockPackage.slides = viewingAsset.content;
-      if (viewingAsset.type === 'flashcards') mockPackage.flashcards = viewingAsset.content;
-      setCurrentPackage(mockPackage);
-    }
-  }, [viewingAsset]);
+  }, [isLoading]);
 
   const handleSourceSubmission = async (source: { file?: File; url?: string }) => {
-    setLoading(true);
-    setError(null);
-    setStatusIndex(0);
     const sourceName = source.file?.name || source.url || "Resource";
-    setLastSourceInfo(sourceName);
+    
+    let sourcePayload: { file?: { base64: string; mimeType: string }; url?: string } = {};
 
-    try {
-      let sourcePayload: { file?: { base64: string; mimeType: string }; url?: string } = {};
-
-      if (source.file) {
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        });
-        reader.readAsDataURL(source.file);
-        const base64 = await base64Promise;
-        sourcePayload = { file: { base64, mimeType: source.file.type } };
-      } else if (source.url) {
-        sourcePayload = { url: source.url };
-      }
-
-      const result = await processUnifiedLabContent(sourcePayload);
-      setCurrentPackage(result);
-
-      // Save each generated part as an individual asset for the vault
-      onSaveAsset({
-        title: result.title,
-        type: 'summary',
-        content: result.summary.content,
-        sourceName: sourceName
+    if (source.file) {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
       });
-      onSaveAsset({
-        title: result.title,
-        type: 'quiz',
-        content: result.quiz,
-        sourceName: sourceName
-      });
-      onSaveAsset({
-        title: result.title,
-        type: 'flashcards',
-        content: result.flashcards,
-        sourceName: sourceName
-      });
-      onSaveAsset({
-        title: result.title,
-        type: 'slides',
-        content: result.slides,
-        sourceName: sourceName
-      });
-
-    } catch (err: any) {
-      setError(err.message || "Unified processing failed. Check network or source availability.");
-    } finally {
-      setLoading(false);
+      reader.readAsDataURL(source.file);
+      const base64 = await base64Promise;
+      sourcePayload = { file: { base64, mimeType: source.file.type } };
+    } else if (source.url) {
+      sourcePayload = { url: source.url };
     }
+
+    onProcess(sourcePayload, sourceName);
   };
 
   const downloadPackage = () => {
@@ -124,6 +77,16 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
     link.click();
   };
 
+  // Determine which tabs to show based on available content
+  const visibleTabs = (['summary', 'quiz', 'flashcards', 'slides'] as LabTool[]).filter(t => {
+     if (!currentPackage) return true; // During loading/initial state, show all (or none logic handled below)
+     if (t === 'summary' && currentPackage.summary) return true;
+     if (t === 'quiz' && currentPackage.quiz) return true;
+     if (t === 'flashcards' && currentPackage.flashcards) return true;
+     if (t === 'slides' && currentPackage.slides) return true;
+     return false;
+  });
+
   return (
     <div className="flex-1 flex flex-col p-8 overflow-y-auto custom-scrollbar">
       <div className="max-w-5xl mx-auto w-full">
@@ -134,13 +97,13 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
           <p className="text-slate-500 font-medium">Single-pass intelligent extraction from any source.</p>
         </header>
 
-        {(currentPackage || loading) && (
+        {(currentPackage || isLoading) && (
           <div className="flex justify-center gap-4 mb-10 no-print flex-wrap">
-            {(['summary', 'quiz', 'flashcards', 'slides'] as LabTool[]).map((t) => (
+            {visibleTabs.map((t) => (
               <button
                 key={t}
                 onClick={() => setActiveTool(t)}
-                disabled={loading}
+                disabled={isLoading}
                 className={`px-8 py-3 rounded-2xl font-bold transition-all border ${
                   activeTool === t 
                   ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
@@ -159,7 +122,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
           </div>
         )}
 
-        {!currentPackage && !loading && (
+        {!currentPackage && !isLoading && (
           <div className="animate-fadeIn no-print">
             <div className="mb-4 text-center">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Unified Summary-First Pass</p>
@@ -167,12 +130,12 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
             <FileUpload 
               onUpload={(file) => handleSourceSubmission({ file })} 
               onUrlSubmit={(url) => handleSourceSubmission({ url })}
-              isLoading={loading} 
+              isLoading={isLoading} 
             />
           </div>
         )}
 
-        {loading && (
+        {isLoading && (
           <div className="flex flex-col items-center justify-center py-24 space-y-8 no-print animate-fadeIn">
             <div className="relative">
               <div className="w-20 h-20 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
@@ -185,7 +148,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
                 {LOADING_STATUSES[statusIndex]}
               </p>
               <p className="text-slate-600 text-[9px] font-bold uppercase tracking-widest leading-relaxed">
-                Our AI is currently searching for transcripts and cross-referencing metadata to ensure high accuracy.
+                Background Task Active: You can switch tabs. The AI will continue processing.
               </p>
             </div>
             
@@ -200,7 +163,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
             <div className="mb-4 text-2xl"><i className="fas fa-exclamation-triangle"></i></div>
             <p className="mb-4">{error}</p>
             <button 
-              onClick={() => { setError(null); setCurrentPackage(null); }} 
+              onClick={onClear} 
               className="bg-rose-500 text-white px-6 py-2 rounded-xl hover:bg-rose-600 transition-colors"
             >
               Try Different Source
@@ -208,7 +171,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
           </div>
         )}
 
-        {currentPackage && !loading && (
+        {currentPackage && !isLoading && (
           <div className="animate-fadeIn space-y-8">
             <div className="flex justify-between items-center bg-[#151515] p-4 rounded-2xl border border-slate-800 no-print">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
@@ -222,10 +185,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ onSaveAsset, viewingAsset }) => {
                   <i className="fas fa-download"></i> Full Export
                 </button>
                 <button 
-                  onClick={() => {
-                    setCurrentPackage(null);
-                    setLastSourceInfo(null);
-                  }}
+                  onClick={onClear}
                   className="text-rose-500 hover:text-rose-400 transition-colors flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
                 >
                   <i className="fas fa-sync"></i> New Source

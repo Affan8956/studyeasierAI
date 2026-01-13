@@ -7,7 +7,7 @@
     <title>StudyEasierAI - Your Academic Powerhouse</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Removed html2pdf as we are switching to native print -->
     
     <!-- KaTeX for Math Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -73,19 +73,66 @@
         transform: rotateY(180deg);
       }
 
+      /* PRINT / EXPORT PDF STYLES */
+      .print-only { display: none !important; }
+
       @media print {
-        @page { margin: 0; size: auto; }
-        body, html {
-          background-color: #0d0d0d !important;
-          color: #f1f5f9 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+        @page { margin: 20mm; size: auto; }
+        
+        /* Reset Body to White Paper Mode */
+        body, html, #root, main {
+          background-color: #ffffff !important;
+          color: #000000 !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: visible !important;
+          height: auto !important;
         }
-        #root > div > div:first-child, .no-print { display: none !important; }
-        main { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #0d0d0d !important; }
-        .summary-print-container { background-color: #0d0d0d !important; color: #f1f5f9 !important; padding: 40px !important; }
-        h1, h2, h3, h4, strong { color: #10b981 !important; }
-        p, li { color: #cbd5e1 !important; }
+
+        /* Hide UI Elements */
+        .no-print, 
+        nav, 
+        aside, 
+        button, 
+        input, 
+        .sidebar, 
+        header.no-print-header,
+        .auth-container { 
+          display: none !important; 
+        }
+
+        /* Show Print-Specific Content */
+        .print-only { display: block !important; }
+
+        /* Typography Overrides for Print */
+        h1, h2, h3, h4, h5, h6 {
+          color: #000000 !important;
+          page-break-after: avoid;
+        }
+        p, li, span, div {
+          color: #1f2937 !important; /* Dark Gray for readability */
+        }
+        
+        /* Make Math Black */
+        .katex { color: #000000 !important; }
+        .katex-display {
+          background: transparent !important;
+          border: 1px solid #eee !important;
+        }
+
+        /* Layout Fixes */
+        .summary-print-container {
+          background: white !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          max-width: 100% !important;
+        }
+
+        /* Ensure links are readable */
+        a { text-decoration: underline; color: #2563eb !important; }
       }
     </style>
     <script type="importmap">
