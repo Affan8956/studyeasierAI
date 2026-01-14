@@ -14,6 +14,20 @@ export interface User {
   };
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface ShareRequest {
+  request_id: string;
+  resource_type: 'asset' | 'vault';
+  asset_title: string;
+  shared_by_name: string;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
