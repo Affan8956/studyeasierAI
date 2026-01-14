@@ -48,6 +48,25 @@ const Sidebar: React.FC<SidebarProps> = ({
       return matchesSearch && matchesMode;
     });
 
+  const handleTutorClick = () => {
+    // Find the most recent tutor chat (chats are already sorted by date in App/Service)
+    const recentTutorChat = chats.find(c => c.mode === 'tutor');
+
+    if (recentTutorChat) {
+      onSelectChat(recentTutorChat.id);
+      // Force view back to 'tutor' to ensure Sidebar highlight stays correct,
+      // overriding the 'chat' view set by onSelectChat
+      setView('tutor');
+    } else if (onNewTutorChat) {
+      onNewTutorChat();
+    } else {
+      setView('tutor');
+    }
+    
+    // Ensure mobile menu closes if open
+    if (mobileOpen) onMobileClose();
+  };
+
   return (
     <div 
       className={`fixed inset-y-0 left-0 z-50 w-80 bg-sidebar border-r border-border flex flex-col h-full transition-transform duration-300 shadow-2xl lg:shadow-none lg:relative lg:translate-x-0 ${
@@ -81,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           
           <div className="flex gap-1">
              <button 
-               onClick={() => setView('tutor')}
+               onClick={handleTutorClick}
                className={`flex-1 flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all text-sm ${view === 'tutor' ? 'bg-indigo-500 text-white shadow-lg' : 'text-text-muted hover:text-text-main hover:bg-surface'}`}
              >
                <i className="fas fa-chalkboard-teacher w-5 text-center"></i> AI Tutor
