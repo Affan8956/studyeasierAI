@@ -1,20 +1,133 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# StudyEasierAI: The Ultimate Academic Intelligence Platform
 
-# Run and deploy your AI Studio app
+![StudyEasierAI Banner](https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=1200)
 
-This contains everything you need to run your app locally.
+> **StudyEasierAI** is a next-generation academic hyper-processor designed to eliminate cognitive overload. Built for the modern student, it transforms chaotic lecture data into structured, pedagogy-aligned study modules in seconds.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1bmZld1YI4NhAPA36fnqCXSRtlI1fXWnx
+---
 
-## Run Locally
+## 🚀 The Mission
+Modern education suffers from **information density**. Students spend more time organizing data than actually learning it. **RootOps** engineered StudyEasierAI to automate the "busy work" of academia, allowing students to focus on deep comprehension and mastery.
 
-**Prerequisites:**  Node.js
+---
 
+## 🛠 Features
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 🧪 Knowledge Lab (The Core Engine)
+Our flagship feature allows for a single-pass processing of **PDFs, Audio Recordings, or YouTube URLs**.
+- **Mastery Summaries:** 1,200+ word structured Markdown reports with integrated LaTeX math.
+- **Interactive Quizzes:** 10-question MCQ sets with high-value AI-generated explanations.
+- **Active Recall Flashcards:** Smart digital cards designed for long-term retention.
+- **GenAI Slides:** 12-slide visual decks complete with expert speaker scripts and AI-generated educational imagery.
+
+### 🧠 Smart Chat & AI Tutor
+Powered by **Gemini 3 Pro**, this module offers multimodal reasoning.
+- **Socratic Tutor Mode:** An AI that guides you with questions rather than just providing answers.
+- **Coding & Technical Modes:** Specialized intelligence for STEM and Computer Science.
+- **Persistent Memory:** All discussions are saved and searchable within your vault.
+
+### 🌐 Deep Research Agent
+Real-time web grounding via **Google Search**. 
+- Fact-check complex theories against the live web.
+- Receive answers with **Source Verification Nodes** (clickable citations).
+
+### 👁️ Vision Analysis
+Transform visual data into academic text.
+- Solve handwritten math problems via LaTeX transcription.
+- Analyze complex diagrams, flowcharts, and whiteboard snapshots.
+
+### 🔐 The Vault & Collaboration
+A secure, persistent workspace for all your intelligence.
+- **Cloud Sync:** Powered by Supabase for cross-device access.
+- **Social Sharing:** Send specific assets or your entire "Vault" to peers for collaborative study.
+
+---
+
+## 👥 The Team: RootOps
+We are a dedicated group of engineers focused on high-performance AI integration.
+
+- **Rohan Salunke** (Team Leader)
+- **Affan Kumthe** (Full Stack & Gemini Integration)
+- **Yogesh Sanap** (UI/UX & Frontend Architecture)
+
+---
+
+## 🛠 Installation & Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Affan8956/studyeasierAI.git
+
+Install dependencies:
+code
+Bash
+npm install
+Environment Variables:
+Create a .env file with your VITE_API_KEY (Gemini) and VITE_SUPABASE_URL/KEY.
+Run development:
+code
+Bash
+npm run dev
+⚖️ License
+Distributed under the MIT License. See LICENSE for more information.
+© 2025 RootOps. Built with ❤️ for the future of education.
+code
+Code
+---
+
+### Part 2: Tech Stack Breakdown (For Pitching)
+
+When pitching to judges, you want to focus on **why** you chose these tools and how they provide a **competitive advantage**.
+
+#### **1. Google Gemini 3 (Pro & Flash-Lite)**
+*   **Why used:** We utilize a "Tiered Model Strategy." 
+    *   **Gemini 3 Pro** handles high-reasoning tasks like the **AI Tutor** and **Slide Scripting** where deep logic is required. 
+    *   **Gemini 3 Flash-Lite** is used for high-speed, low-latency tasks like **Deep Research** and **Summary Generation**.
+*   **Unique Edge:** We leverage the **Thinking Budget** feature (up to 32k tokens), allowing the AI to "think" before it speaks, significantly reducing hallucinations in complex math and science topics.
+
+#### **2. Supabase (PostgreSQL & Real-time)**
+*   **Why used:** Supabase provides an enterprise-grade backend without the overhead of a custom server. 
+*   **Unique Edge:** We implemented **Row Level Security (RLS)** combined with a custom **ShareRequest** system. This allows for secure, peer-to-peer data sharing while ensuring user data privacy by default.
+
+#### **3. React 19 & Tailwind CSS**
+*   **Why used:** For a "Single Page Intelligence" (SPI) feel. Tailwind allowed us to build a **Design System** that supports multiple themes (Cyber Deck, Midnight OLED, Academic Paper) with zero performance impact.
+*   **Unique Edge:** The UI is designed with a **"Mobile-First, Research-Second"** approach, ensuring a student can record a lecture on their phone and review the summary on their laptop instantly.
+
+#### **4. MathJax 3.0**
+*   **Why used:** Standard Markdown fails at complex science. 
+*   **Unique Edge:** We integrated MathJax to ensure that every equation generated by our AI is rendered in beautiful, high-fidelity LaTeX, making the app viable for advanced Engineering and Physics students.
+
+#### **5. IndexedDB (Offline-First Logic)**
+*   **Why used:** Students don't always have stable Wi-Fi. 
+*   **Unique Edge:** We built a local mirroring system. If the Supabase connection drops, the app silently switches to **Local Mode**, saving all assets to the browser's IndexedDB and syncing them back to the cloud once a connection is restored.
+lightbulb_tips
+Suggestions
+Make changes, add new features, ask for anything
+
+---
+
+### Part 2: Tech Stack Breakdown (For Pitching)
+
+When pitching to judges, you want to focus on **why** you chose these tools and how they provide a **competitive advantage**.
+
+#### **1. Google Gemini 3 (Pro & Flash-Lite)**
+*   **Why used:** We utilize a "Tiered Model Strategy." 
+    *   **Gemini 3 Pro** handles high-reasoning tasks like the **AI Tutor** and **Slide Scripting** where deep logic is required. 
+    *   **Gemini 3 Flash-Lite** is used for high-speed, low-latency tasks like **Deep Research** and **Summary Generation**.
+*   **Unique Edge:** We leverage the **Thinking Budget** feature (up to 32k tokens), allowing the AI to "think" before it speaks, significantly reducing hallucinations in complex math and science topics.
+
+#### **2. Supabase (PostgreSQL & Real-time)**
+*   **Why used:** Supabase provides an enterprise-grade backend without the overhead of a custom server. 
+*   **Unique Edge:** We implemented **Row Level Security (RLS)** combined with a custom **ShareRequest** system. This allows for secure, peer-to-peer data sharing while ensuring user data privacy by default.
+
+#### **3. React 19 & Tailwind CSS**
+*   **Why used:** For a "Single Page Intelligence" (SPI) feel. Tailwind allowed us to build a **Design System** that supports multiple themes (Cyber Deck, Midnight OLED, Academic Paper) with zero performance impact.
+*   **Unique Edge:** The UI is designed with a **"Mobile-First, Research-Second"** approach, ensuring a student can record a lecture on their phone and review the summary on their laptop instantly.
+
+#### **4. MathJax 3.0**
+*   **Why used:** Standard Markdown fails at complex science. 
+*   **Unique Edge:** We integrated MathJax to ensure that every equation generated by our AI is rendered in beautiful, high-fidelity LaTeX, making the app viable for advanced Engineering and Physics students.
+
+#### **5. IndexedDB (Offline-First Logic)**
+*   **Why used:** Students don't always have stable Wi-Fi. 
+*   **Unique Edge:** We built a local mirroring system. If the Supabase connection drops, the app silently switches to **Local Mode**, saving all assets to the browser's IndexedDB and syncing them back to the cloud once a connection is restored.
