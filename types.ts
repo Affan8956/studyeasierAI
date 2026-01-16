@@ -1,8 +1,16 @@
 
 export type AIMode = 'study' | 'coding' | 'writing' | 'tutor' | 'research';
-export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor' | 'vision' | 'about';
+export type ViewState = 'dashboard' | 'chat' | 'lab' | 'vault' | 'settings' | 'research' | 'tutor' | 'vision' | 'about' | 'analytics' | 'focus_studio';
 export type LabTool = 'summary' | 'quiz' | 'slides' | 'flashcards' | 'research' | 'image_analysis';
-export type AppTheme = 'default' | 'light' | 'midnight' | 'forest';
+export type AppTheme = 'default' | 'light' | 'eyecare' | 'custom';
+export type TimerMode = 'focus' | 'deep_study' | 'revision' | 'break' | 'stopwatch' | 'custom';
+
+export interface CustomThemeColors {
+  bgApp: string;
+  bgSurface: string;
+  borderBase: string;
+  textMain: string;
+}
 
 export interface User {
   id: string;
@@ -18,6 +26,18 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+}
+
+export interface StudySession {
+  id: string;
+  userId: string;
+  startTime: number;
+  endTime: number;
+  durationMinutes: number;
+  mode: TimerMode;
+  featureUsed?: string;
+  topic?: string;
+  createdAt: number;
 }
 
 export interface ShareRequest {
@@ -104,9 +124,50 @@ export interface ResearchState {
 
 export interface VisionState {
   isLoading: boolean;
-  image: string | null; // Base64 data URI for preview
+  mode: 'analyze' | 'generate';
+  image: string | null; // Base64 data URI for preview (Analysis) or Result (Generation)
+  generatedImage: string | null; // Specific field for generated results
   mimeType: string;
   prompt: string;
   result: string | null;
   error: string | null;
+}
+
+// --- AI INTELLIGENCE TYPES ---
+
+export interface AIStudyCoachResponse {
+  diagnosis: string;
+  weekly_plan: {
+    day: string;
+    recommended_minutes: number;
+    focus: string;
+  }[];
+  motivation: string;
+}
+
+export interface AIInsightsResponse {
+  insights: string[];
+  suggestions: string[];
+  study_pattern: {
+    best_time: 'morning' | 'afternoon' | 'evening' | 'night';
+    most_effective_mode: TimerMode;
+  };
+}
+
+export interface AIProductivityResponse {
+  study_iq: number;
+  breakdown: {
+    focus: number;
+    consistency: number;
+    variety: number;
+  };
+  summary: string;
+}
+
+export interface AISessionSuggestion {
+  recommended_duration: number;
+  recommended_mode: TimerMode;
+  recommended_feature: 'slides' | 'flashcards' | 'quiz' | 'summary';
+  reason: string;
+  time_insight: string;
 }

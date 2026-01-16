@@ -79,19 +79,21 @@ export const login = async (email: string, password: string) => {
       token: data.session?.access_token 
     };
   } catch (err: any) {
+    const errorMsg = (err.message || "").toLowerCase();
+    
     // Graceful Fallback for Network/Config Errors
     if (
       err.message === 'CONNECTION_TIMEOUT' || 
-      err.message?.includes('Failed to fetch') || 
-      err.message?.includes('Invalid API key') ||
-      err.message?.includes('abort') ||
-      err.message?.includes('signal')
+      errorMsg.includes('failed to fetch') || 
+      errorMsg.includes('invalid api key') ||
+      errorMsg.includes('abort') ||
+      errorMsg.includes('signal')
     ) {
       console.warn("Backend unreachable or request aborted. Falling back to Local Mode.", err.message);
       return { user: createLocalUser(email), token: 'local-offline-token' };
     }
 
-    if (err.message.toLowerCase().includes('email not confirmed')) {
+    if (errorMsg.includes('email not confirmed')) {
       throw new Error('EMAIL_NOT_CONFIRMED');
     }
     throw err;
@@ -116,18 +118,20 @@ export const signup = async (name: string, email: string, password: string) => {
     if (error) throw error;
     return data.user;
   } catch (err: any) {
+    const errorMsg = (err.message || "").toLowerCase();
+
     if (
       err.message === 'CONNECTION_TIMEOUT' || 
-      err.message?.includes('Failed to fetch') || 
-      err.message?.includes('Invalid API key') ||
-      err.message?.includes('abort') ||
-      err.message?.includes('signal')
+      errorMsg.includes('failed to fetch') || 
+      errorMsg.includes('invalid api key') ||
+      errorMsg.includes('abort') ||
+      errorMsg.includes('signal')
     ) {
       console.warn("Backend unreachable during signup. Creating Local User.");
       return createLocalUser(email, name);
     }
 
-    if (err.message.toLowerCase().includes('user already registered')) {
+    if (errorMsg.includes('user already registered')) {
       throw new Error('USER_ALREADY_EXISTS');
     }
     throw err;
@@ -144,6 +148,27 @@ export const resendConfirmationEmail = async (email: string) => {
     }
   });
   if (error) throw error;
+};
+
+export const sendPasswordResetEmail = async (email: string) => {
+  if (!isSupabaseConfigured) throw new Error("Cloud backend unavailable");
+  
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  
+  if (error) throw error;
+};
+
+export const updatePassword = async (password: string) => {
+  if (!isSupabaseConfigured) throw new Error("Cloud backend unavailable");
+  
+  const { data, error } = await supabase.auth.updateUser({
+    password: password
+  });
+
+  if (error) throw error;
+  return data.user;
 };
 
 export const logout = async () => {

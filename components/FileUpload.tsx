@@ -60,22 +60,22 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
   return (
     <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-fadeIn">
       {/* Tab Switcher */}
-      <div className="flex bg-[#151515] p-1.5 rounded-2xl mb-6 border border-slate-800 max-w-xs mx-auto">
+      <div className="flex bg-surface p-1.5 rounded-2xl mb-6 border border-border max-w-xs mx-auto shadow-sm">
         <button 
           onClick={() => setActiveTab('file')}
-          className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'file' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'file' ? 'bg-indigo-600 text-white shadow-lg' : 'text-text-muted hover:text-text-main'}`}
         >
           <i className="fas fa-file-upload mr-2"></i> File
         </button>
         <button 
           onClick={() => setActiveTab('url')}
-          className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'url' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'url' ? 'bg-red-600 text-white shadow-lg' : 'text-text-muted hover:text-text-main'}`}
         >
           <i className="fab fa-youtube mr-2"></i> Link
         </button>
       </div>
 
-      <div className="bg-[#121212] rounded-3xl border border-slate-800 p-8 shadow-2xl relative overflow-hidden">
+      <div className="bg-surface2 rounded-3xl border border-border p-8 shadow-2xl relative overflow-hidden">
         {activeTab === 'file' ? (
           <div
             onDragOver={handleDragOver}
@@ -83,7 +83,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
             onDrop={handleDrop}
             onClick={() => !isLoading && fileInputRef.current?.click()}
             className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${
-              isDragging ? 'border-indigo-500 bg-indigo-500/5' : 'border-slate-800 hover:border-indigo-500/50 hover:bg-white/5'
+              isDragging ? 'border-indigo-500 bg-indigo-500/5' : 'border-border hover:border-indigo-500/50 hover:bg-surface'
             } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <input
@@ -99,13 +99,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
               <div className="mb-6 inline-flex items-center justify-center w-16 h-16 bg-indigo-600/10 text-indigo-500 rounded-2xl shadow-xl">
                 <i className="fas fa-file-audio text-2xl"></i>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">
+              <h3 className="text-xl font-bold text-text-main mb-2 uppercase tracking-tight">
                 Upload Content
               </h3>
-              <p className="text-slate-500 text-sm max-w-sm px-4 leading-relaxed font-medium">
+              <p className="text-text-muted text-sm max-w-sm px-4 leading-relaxed font-medium">
                 Drop a PDF or <span className="text-indigo-400 font-bold">Audio Recording</span> for advanced AI analysis.
               </p>
-              <div className="mt-6 flex gap-6 justify-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+              <div className="mt-6 flex gap-6 justify-center text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">
                 <span className="flex items-center gap-2"><i className="fas fa-file-pdf text-indigo-500"></i> PDF</span>
                 <span className="flex items-center gap-2"><i className="fas fa-microphone text-indigo-500"></i> AUDIO</span>
               </div>
@@ -121,10 +121,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
               <i className="fas fa-search mr-2"></i> Deep Grounding Active
             </div>
 
-            <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">
+            <h3 className="text-xl font-bold text-text-main mb-2 uppercase tracking-tight">
               YouTube Analysis
             </h3>
-            <p className="text-slate-500 text-sm mb-8 text-center max-w-sm leading-relaxed font-medium">
+            <p className="text-text-muted text-sm mb-8 text-center max-w-sm leading-relaxed font-medium">
               Provide a YouTube URL. Our AI will research the topic, extract key points from the transcript, and generate a consistent English study package.
             </p>
             <form onSubmit={handleUrlSubmit} className="w-full relative group">
@@ -134,7 +134,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
                 placeholder="https://www.youtube.com/watch?v=..."
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                className="w-full bg-[#0d0d0d] border-2 border-slate-800 rounded-2xl px-6 py-4 pr-16 text-sm text-slate-200 outline-none transition-all focus:border-red-600 shadow-2xl font-medium"
+                className="w-full bg-surface border-2 border-border rounded-2xl px-6 py-4 pr-16 text-sm text-text-main outline-none transition-all focus:border-red-600 shadow-2xl font-medium"
               />
               <button 
                 type="submit"
@@ -144,7 +144,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, onUrlSubmit, isLoadin
                 <i className={`fas ${isLoading ? 'fa-spinner fa-spin' : 'fa-arrow-right'}`}></i>
               </button>
             </form>
-            <p className="mt-6 text-[9px] text-slate-600 font-bold uppercase tracking-widest text-center">
+            <p className="mt-6 text-[9px] text-text-muted font-bold uppercase tracking-widest text-center">
               Processing may take 30-60s for deep transcript grounding.
             </p>
           </div>

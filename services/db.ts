@@ -1,8 +1,8 @@
 
-import { User, ChatSession, LabAsset } from '../types';
+import { User, ChatSession, LabAsset, StudySession } from '../types';
 
 const DB_NAME = 'StudyEasierDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for new store
 
 class StudyEasierDatabase {
   private db: IDBDatabase | null = null;
@@ -36,6 +36,9 @@ class StudyEasierDatabase {
           }
           if (!db.objectStoreNames.contains('assets')) {
             db.createObjectStore('assets', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('study_sessions')) {
+            db.createObjectStore('study_sessions', { keyPath: 'id' });
           }
         };
       } catch (e) {
@@ -111,6 +114,16 @@ class StudyEasierDatabase {
       transaction.oncomplete = () => res();
       transaction.onerror = () => rej(transaction.error);
     });
+  }
+
+  async saveStudySession(session: StudySession): Promise<void> {
+    await this.performAction('study_sessions', 'readwrite', (s) => s.put(session));
+  }
+
+  async getStudySessions(userId: string): Promise<StudySession[]> {
+    const sessions: StudySession[] = await this.performAction('study_sessions', 'readonly', (s) => s.getAll());
+    if (!Array.isArray(sessions)) return [];
+    return sessions.filter(s => s.userId === userId).sort((a, b) => b.startTime - a.startTime);
   }
 }
 

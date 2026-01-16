@@ -1,5 +1,5 @@
 
-import { ChatSession, LabAsset, AIMode, Message } from '../types';
+import { ChatSession, LabAsset, AIMode, Message, StudySession } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { db } from './db';
 
@@ -8,7 +8,8 @@ import { db } from './db';
  */
 let cloudSyncActive = {
   chats: isSupabaseConfigured,
-  assets: isSupabaseConfigured
+  assets: isSupabaseConfigured,
+  sessions: isSupabaseConfigured
 };
 
 /**
@@ -34,9 +35,8 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 5000, fallback: T): Pr
   });
 };
 
-const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
+const handleSupabaseError = (error: any, feature: 'chats' | 'assets' | 'sessions') => {
   const errorMsg = (error.message || "").toLowerCase();
-  console.warn(`Supabase ${feature} error:`, errorMsg);
   
   if (
     error.code === 'PGRST204' || 
@@ -49,7 +49,7 @@ const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
     errorMsg.includes('signal')
   ) {
     if (cloudSyncActive[feature]) {
-      console.warn(`Supabase ${feature} sync disabled: ${errorMsg || 'Connection issues'}. Switching to Local Mode.`);
+      console.warn(`Supabase ${feature} sync disabled due to connectivity issue. Switching to Local Mode.`);
       cloudSyncActive[feature] = false;
     }
   }
@@ -61,6 +61,7 @@ const isValidUUID = (id: string) => {
 };
 
 export const saveChat = async (userId: string, chat: ChatSession) => {
+  // Always save locally first
   await db.saveChat(chat);
 
   if (!cloudSyncActive.chats) return;
@@ -264,4 +265,76 @@ export const clearAllAssets = async (userId: string) => {
       handleSupabaseError(e, 'assets');
     }
   }
+};
+
+export const saveStudySession = async (userId: string, session: Omit<StudySession, 'id' | 'userId' | 'createdAt'>) => {
+  const fullSession: StudySession = {
+    ...session,
+    id: 'session_' + Math.random().toString(36).substr(2, 9),
+    userId,
+    createdAt: Date.now()
+  };
+
+  await db.saveStudySession(fullSession);
+
+  if (cloudSyncActive.sessions && isValidUUID(userId)) {
+    try {
+      const { error } = await supabase
+        .from('study_sessions')
+        .insert([{
+          id: fullSession.id,
+          user_id: userId,
+          start_time: new Date(session.startTime).toISOString(),
+          end_time: new Date(session.endTime).toISOString(),
+          duration_minutes: session.durationMinutes,
+          mode: session.mode,
+          feature_used: session.featureUsed,
+          topic: session.topic
+        }]);
+      if (error) handleSupabaseError(error, 'sessions');
+    } catch (e: any) {
+      handleSupabaseError(e, 'sessions');
+    }
+  }
+};
+
+export const getStudySessions = async (userId: string): Promise<StudySession[]> => {
+  const localSessions = await db.getStudySessions(userId);
+  if (!cloudSyncActive.sessions) return localSessions;
+  if (!isValidUUID(userId)) return localSessions;
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('study_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }) as any,
+      4000,
+      { data: null, error: null } as any
+    );
+
+    if (error) {
+      handleSupabaseError(error, 'sessions');
+      return localSessions;
+    }
+
+    if (data) {
+      return data.map((s: any) => ({
+        id: s.id,
+        userId: s.user_id,
+        startTime: new Date(s.start_time).getTime(),
+        endTime: new Date(s.end_time).getTime(),
+        durationMinutes: s.duration_minutes,
+        mode: s.mode,
+        featureUsed: s.feature_used,
+        topic: s.topic,
+        createdAt: new Date(s.created_at).getTime()
+      }));
+    }
+  } catch (e: any) {
+    handleSupabaseError(e, 'sessions');
+  }
+
+  return localSessions;
 };

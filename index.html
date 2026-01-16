@@ -76,27 +76,28 @@
         --text-invert: #ffffff;
       }
 
-      .theme-midnight {
-        /* MIDNIGHT THEME (OLED) */
-        --bg-app: #000000;
-        --bg-sidebar: #000000;
-        --bg-surface: #050505;
-        --bg-surface-2: #0a0a0a;
-        --border-base: #262626; /* neutral-800 */
-        --text-main: #e5e5e5;   /* neutral-200 */
-        --text-muted: #737373;  /* neutral-500 */
-        --text-invert: #000000;
+      .theme-eyecare {
+        /* EYECARE MODE (Warm/Sepia for Reduced Eye Strain) */
+        --bg-app: #151412;      /* Very dark warm charcoal */
+        --bg-sidebar: #1c1b19;  /* Slightly lighter warm charcoal */
+        --bg-surface: #262422;  /* Warm dark grey surface */
+        --bg-surface-2: #33302c; /* Lighter surface for active elements */
+        --border-base: #45403a; /* Low contrast warm border */
+        --text-main: #e6e0d4;   /* Soft warm white (parchment tint) */
+        --text-muted: #9c968f;  /* Muted warm grey */
+        --text-invert: #0d0c0b;
       }
 
-      .theme-forest {
-        /* FOREST THEME (Nature) */
-        --bg-app: #020617;      /* slate-950 */
-        --bg-sidebar: #051a10;  /* deep green */
-        --bg-surface: #062c1b;  
-        --bg-surface-2: #022c22;
-        --border-base: #064e3b; /* emerald-900 */
-        --text-main: #ecfccb;   /* lime-100 */
-        --text-muted: #65a30d;  /* lime-600 */
+      .theme-custom {
+        /* CUSTOM MODE - Variables here will be overridden by Inline Styles from JS */
+        /* These are fallback values if JS fails */
+        --bg-app: #222222;
+        --bg-sidebar: #222222;
+        --bg-surface: #333333;
+        --bg-surface-2: #444444;
+        --border-base: #555555;
+        --text-main: #ffffff;
+        --text-muted: #aaaaaa;
         --text-invert: #000000;
       }
 

@@ -94,7 +94,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
           <h1 className="text-3xl md:text-4xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400">
             Knowledge Lab
           </h1>
-          <p className="text-slate-500 font-medium text-sm md:text-base">Single-pass intelligent extraction from any source.</p>
+          <p className="text-text-muted font-medium text-sm md:text-base">Single-pass intelligent extraction from any source.</p>
         </header>
 
         {(currentPackage || isLoading) && (
@@ -107,7 +107,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
                 className={`px-5 py-2.5 md:px-8 md:py-3 rounded-2xl font-bold transition-all border text-xs md:text-sm ${
                   activeTool === t 
                   ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
-                  : 'bg-[#151515] border-slate-800 text-slate-500 hover:text-slate-300'
+                  : 'bg-surface border-border text-text-muted hover:text-text-main hover:bg-surface2'
                 } disabled:opacity-50`}
               >
                 <i className={`fas mr-2 ${
@@ -125,7 +125,7 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
         {!currentPackage && !isLoading && (
           <div className="animate-fadeIn no-print">
             <div className="mb-4 text-center">
-              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Unified Summary-First Pass</p>
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">Unified Summary-First Pass</p>
             </div>
             <FileUpload 
               onUpload={(file) => handleSourceSubmission({ file })} 
@@ -147,12 +147,12 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
               <p className="text-emerald-400 font-black animate-pulse uppercase tracking-[0.4em] text-[11px] mb-2">
                 {LOADING_STATUSES[statusIndex]}
               </p>
-              <p className="text-slate-600 text-[9px] font-bold uppercase tracking-widest leading-relaxed">
+              <p className="text-text-muted text-[9px] font-bold uppercase tracking-widest leading-relaxed">
                 Background Task Active: You can switch tabs. The AI will continue processing.
               </p>
             </div>
             
-            <div className="w-48 h-1 bg-slate-900 rounded-full overflow-hidden">
+            <div className="w-48 h-1 bg-surface2 rounded-full overflow-hidden">
                <div className="h-full bg-emerald-500 animate-[loading_2s_ease-in-out_infinite]"></div>
             </div>
           </div>
@@ -173,9 +173,9 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
 
         {currentPackage && !isLoading && (
           <div className="animate-fadeIn space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-center bg-[#151515] p-4 rounded-2xl border border-slate-800 no-print gap-4">
-              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 text-center md:text-left">
-                <i className="fas fa-fingerprint mr-2 text-emerald-500"></i> Entity: <span className="text-slate-300">{currentPackage.title}</span>
+            <div className="flex flex-col md:flex-row justify-between items-center bg-surface p-4 rounded-2xl border border-border no-print gap-4 shadow-sm">
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-muted text-center md:text-left">
+                <i className="fas fa-fingerprint mr-2 text-emerald-500"></i> Entity: <span className="text-text-main">{currentPackage.title}</span>
               </p>
               <div className="flex gap-4">
                 <button 

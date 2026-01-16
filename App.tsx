@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState, AppTheme } from './types';
+import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState, AppTheme, CustomThemeColors } from './types';
 import { getCurrentSession, logout } from './services/authService';
 import { getHistory, saveChat, deleteChat, createNewChat, getAssets, saveAsset, deleteAsset, clearAllAssets } from './services/historyService';
-import { processUnifiedLabContent, performDeepResearch, analyzeImage } from './services/geminiService';
-import { supabase } from './services/supabaseClient';
+import { processUnifiedLabContent, performDeepResearch, analyzeImage, generateStudyImage } from './services/geminiService';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 import AuthForm from './components/AuthForm';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
@@ -15,6 +15,8 @@ import ResearchView from './components/ResearchView';
 import VisionPanel from './components/VisionPanel';
 import AboutView from './components/AboutView';
 import ThemeSelector from './components/ThemeSelector';
+import AnalyticsView from './components/AnalyticsView';
+import FocusStudio from './components/FocusStudio';
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, token: null, isAuthenticated: false });
@@ -27,6 +29,17 @@ const App: React.FC = () => {
   const [viewingAsset, setViewingAsset] = useState<LabAsset | null>(null);
   const [theme, setTheme] = useState<AppTheme>('default');
   
+  // Custom Theme State
+  const [customColors, setCustomColors] = useState<CustomThemeColors>({
+    bgApp: '#0f172a',
+    bgSurface: '#1e293b',
+    borderBase: '#334155',
+    textMain: '#f8fafc'
+  });
+  
+  // Specific state for password reset flow
+  const [isPasswordResetMode, setIsPasswordResetMode] = useState(false);
+
   // Mobile Sidebar State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -48,7 +61,9 @@ const App: React.FC = () => {
 
   const [visionState, setVisionState] = useState<VisionState>({
     isLoading: false,
+    mode: 'analyze',
     image: null,
+    generatedImage: null,
     mimeType: '',
     prompt: '',
     result: null,
@@ -64,6 +79,14 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // 0. IMMEDIATE HASH CHECK: Detect recovery mode before anything else
+    // This catches the case where the user clicks the email link
+    if (window.location.hash && window.location.hash.includes('type=recovery')) {
+      console.log("Recovery mode detected via URL hash");
+      setIsPasswordResetMode(true);
+      // Don't turn off loading yet, let Supabase process the session
+    }
+
     // 1. HARD FAILSAFE: Force loading off after 2.5 seconds no matter what.
     const hardStop = setTimeout(() => {
       setIsAppLoading(false);
@@ -96,54 +119,124 @@ const App: React.FC = () => {
 
     // Check for saved theme
     const savedTheme = localStorage.getItem('app_theme') as AppTheme;
+    
+    // Check for saved custom colors
+    const savedCustomColors = localStorage.getItem('app_custom_colors');
+    if (savedCustomColors) {
+      try {
+        setCustomColors(JSON.parse(savedCustomColors));
+      } catch (e) {}
+    }
+
     if (savedTheme) handleThemeChange(savedTheme);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-        const fullSession = await getCurrentSession();
-        if (fullSession) {
-          setAuth({ user: fullSession.user, token: fullSession.token, isAuthenticated: true });
-          const [history, savedAssets] = await Promise.all([
-            getHistory(fullSession.user.id).catch(() => []),
-            getAssets(fullSession.user.id).catch(() => [])
-          ]);
-          setChats(history);
-          setAssets(savedAssets);
+    // Only set up subscription if Supabase is actually configured
+    if (isSupabaseConfigured) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log("Auth Event:", event);
+        
+        // Explicitly handle Password Recovery Event
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordResetMode(true);
+          setIsAppLoading(false); // Ensure loader is dismissed so they see the form
         }
-      } else if (event === 'SIGNED_OUT') {
-        setAuth({ user: null, token: null, isAuthenticated: false });
-        setChats([]);
-        setAssets([]);
-        setActiveChatId(null);
-        setView('dashboard');
-        // Reset background states on logout
-        setLabState({ isLoading: false, currentPackage: null, error: null, lastSourceInfo: null, activeTab: 'summary' });
-        setResearchState({ isLoading: false, result: null, error: null, query: '' });
-        setVisionState({ isLoading: false, image: null, mimeType: '', prompt: '', result: null, error: null });
-      }
-    });
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(hardStop);
-    };
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+          // If we are in recovery mode, we might be signed in via the token, 
+          // but we still want to show the reset form, not the dashboard.
+          // The hash check above helps ensures isPasswordResetMode is true.
+          
+          const fullSession = await getCurrentSession();
+          if (fullSession) {
+            setAuth({ user: fullSession.user, token: fullSession.token, isAuthenticated: true });
+            const [history, savedAssets] = await Promise.all([
+              getHistory(fullSession.user.id).catch(() => []),
+              getAssets(fullSession.user.id).catch(() => [])
+            ]);
+            setChats(history);
+            setAssets(savedAssets);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          handleLocalSignOutCleanup();
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+        clearTimeout(hardStop);
+      };
+    } else {
+      return () => clearTimeout(hardStop);
+    }
   }, []);
+
+  const handleLocalSignOutCleanup = () => {
+    setAuth({ user: null, token: null, isAuthenticated: false });
+    setChats([]);
+    setAssets([]);
+    setActiveChatId(null);
+    setView('dashboard');
+    setIsPasswordResetMode(false);
+    setLabState({ isLoading: false, currentPackage: null, error: null, lastSourceInfo: null, activeTab: 'summary' });
+    setResearchState({ isLoading: false, result: null, error: null, query: '' });
+    setVisionState({ isLoading: false, mode: 'analyze', image: null, generatedImage: null, mimeType: '', prompt: '', result: null, error: null });
+  };
+
+  const applyCustomColorsToDOM = (colors: CustomThemeColors) => {
+    const root = document.documentElement;
+    root.style.setProperty('--bg-app', colors.bgApp);
+    root.style.setProperty('--bg-sidebar', colors.bgApp); // Simplified: sidebar same as app bg
+    root.style.setProperty('--bg-surface', colors.bgSurface);
+    root.style.setProperty('--bg-surface-2', colors.bgSurface); // Use same for now or could derive
+    root.style.setProperty('--border-base', colors.borderBase);
+    root.style.setProperty('--text-main', colors.textMain);
+    root.style.setProperty('--text-muted', colors.textMain + '80'); // 50% opacity hex
+  };
+
+  const handleCustomColorChange = (newColors: Partial<CustomThemeColors>) => {
+    const updated = { ...customColors, ...newColors };
+    setCustomColors(updated);
+    localStorage.setItem('app_custom_colors', JSON.stringify(updated));
+    
+    if (theme === 'custom') {
+      applyCustomColorsToDOM(updated);
+    }
+  };
 
   const handleThemeChange = (newTheme: AppTheme) => {
     setTheme(newTheme);
     localStorage.setItem('app_theme', newTheme);
     
-    // Remove all theme classes first
-    document.documentElement.classList.remove('theme-light', 'theme-midnight', 'theme-forest');
+    const root = document.documentElement;
+
+    // Remove all theme classes first (including old midnight just in case)
+    root.classList.remove('theme-light', 'theme-eyecare', 'theme-forest', 'theme-midnight', 'theme-custom');
     
+    // Clear inline styles if we are switching AWAY from custom
+    if (newTheme !== 'custom') {
+      root.removeAttribute('style');
+    }
+
     // Add new theme class if not default
     if (newTheme !== 'default') {
-      document.documentElement.classList.add(`theme-${newTheme}`);
+      root.classList.add(`theme-${newTheme}`);
+    }
+
+    // If Custom, inject the variables
+    if (newTheme === 'custom') {
+      applyCustomColorsToDOM(customColors);
     }
   };
 
   const handleLogout = async () => {
-    await logout();
+    // Attempt backend logout but force local cleanup immediately to avoid UI hanging
+    try {
+      await logout();
+    } catch (e) {
+      console.warn("Backend logout failed, forcing local logout");
+    } finally {
+      handleLocalSignOutCleanup();
+    }
   };
 
   const handleNewChat = async (mode: AIMode = 'study') => {
@@ -192,7 +285,7 @@ const App: React.FC = () => {
     setAssets([]);
     setLabState(prev => ({ ...prev, currentPackage: null, activeTab: 'summary' }));
     setResearchState(prev => ({ ...prev, result: null }));
-    setVisionState(prev => ({ ...prev, result: null, image: null }));
+    setVisionState(prev => ({ ...prev, result: null, image: null, generatedImage: null }));
   };
 
   const handleOpenAsset = (asset: LabAsset) => {
@@ -210,12 +303,21 @@ const App: React.FC = () => {
       });
       setView('research');
     } else if (asset.type === 'image_analysis') {
+      // Determine if it was analysis (text content) or generation (image content)
+      // Since 'content' is `any` and for analysis it's string, for generation we should probably treat it differently.
+      // But for simplicity in this version, let's assume assets saved are text analyses OR we handle text as 'result'.
+      // If we save generated images, they are strings (base64). 
+      // Let's assume for now existing assets are text analysis.
+      const isBase64Image = typeof asset.content === 'string' && asset.content.startsWith('data:image');
+      
       setVisionState({
         isLoading: false,
-        image: null, 
+        mode: isBase64Image ? 'generate' : 'analyze',
+        image: isBase64Image ? null : null, // Original upload not stored in asset
+        generatedImage: isBase64Image ? asset.content : null,
         mimeType: '',
         prompt: asset.title,
-        result: asset.content,
+        result: isBase64Image ? null : asset.content,
         error: null
       });
       setView('vision');
@@ -282,7 +384,7 @@ const App: React.FC = () => {
   };
 
   const handleVisionAnalyze = async (image: string, mimeType: string, prompt: string) => {
-    setVisionState({ isLoading: true, image, mimeType, prompt, result: null, error: null });
+    setVisionState({ isLoading: true, mode: 'analyze', image, mimeType, prompt, result: null, error: null, generatedImage: null });
 
     try {
       const base64Data = image.split(',')[1];
@@ -296,6 +398,19 @@ const App: React.FC = () => {
         sourceName: 'Gemini Vision Engine'
       });
 
+    } catch (err: any) {
+      setVisionState(prev => ({ ...prev, isLoading: false, error: getErrorMessage(err) }));
+    }
+  };
+
+  const handleVisionGenerate = async (prompt: string) => {
+    setVisionState({ isLoading: true, mode: 'generate', image: null, mimeType: '', prompt, result: null, error: null, generatedImage: null });
+    
+    try {
+      const base64Image = await generateStudyImage(prompt);
+      setVisionState(prev => ({ ...prev, isLoading: false, generatedImage: base64Image }));
+
+      // Note: Auto-saving is handled by user action in VisionPanel, but we pass the saver function
     } catch (err: any) {
       setVisionState(prev => ({ ...prev, isLoading: false, error: getErrorMessage(err) }));
     }
@@ -331,6 +446,21 @@ const App: React.FC = () => {
         <p className="text-slate-600 text-[9px] mt-4 uppercase font-bold tracking-widest">Verifying Academic Handshake</p>
       </div>
     );
+  }
+
+  // Intercept normal auth flow if in Password Reset Mode (triggered by email link)
+  if (isPasswordResetMode) {
+     return (
+       <div className="min-h-screen bg-app flex items-center justify-center p-6">
+        <AuthForm 
+          initialMode="reset_password"
+          onAuthComplete={() => {
+             // Reset mode complete, clear state and potentially just let the auth state listener take over
+             setIsPasswordResetMode(false);
+          }} 
+        />
+      </div>
+     );
   }
 
   if (!auth.isAuthenticated) {
@@ -376,7 +506,12 @@ const App: React.FC = () => {
 
       <main className="flex-1 relative flex flex-col overflow-hidden w-full">
         {/* THEME SELECTOR - Top Right Corner */}
-        <ThemeSelector currentTheme={theme} onThemeChange={handleThemeChange} />
+        <ThemeSelector 
+          currentTheme={theme} 
+          onThemeChange={handleThemeChange} 
+          customColors={customColors}
+          onCustomColorChange={handleCustomColorChange}
+        />
 
         {view === 'dashboard' && (
           <Dashboard 
@@ -413,7 +548,9 @@ const App: React.FC = () => {
           <VisionPanel 
             state={visionState}
             onAnalyze={handleVisionAnalyze}
+            onGenerate={handleVisionGenerate}
             onUpdateState={handleVisionUpdate}
+            onSaveAsset={handleSaveAsset}
           />
         )}
 
@@ -435,6 +572,14 @@ const App: React.FC = () => {
             onDeleteAsset={handleDeleteAsset}
             onClearAll={handleClearAllAssets}
           />
+        )}
+
+        {view === 'analytics' && (
+          <AnalyticsView userId={auth.user!.id} />
+        )}
+
+        {view === 'focus_studio' && (
+          <FocusStudio userId={auth.user!.id} />
         )}
 
         {view === 'about' && (

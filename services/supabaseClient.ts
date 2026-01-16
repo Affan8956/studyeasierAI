@@ -32,18 +32,25 @@ const getEnvVar = (possibleKeys: string[]) => {
 const envUrl = getEnvVar(['VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL']);
 const envKey = getEnvVar(['VITE_SUPABASE_KEY', 'VITE_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_KEY']);
 
-// 2. Fallback to the hardcoded keys provided by the user
-// NOTE: Ideally these should be in a .env file, but this ensures it works immediately for you.
-const supabaseUrl = envUrl || 'https://brldjshkavgwtsismdtl.supabase.co';
-const supabaseAnonKey = envKey || 'sb_publishable_6AF-Ac1KTu94s5l5AJBXQw_m_9ZDoIk';
+// 2. Fallback to the NEW hardcoded keys provided by the user
+const supabaseUrl = envUrl || 'https://gotwrqmftdrbbziarsnc.supabase.co';
+const supabaseAnonKey = envKey || 'sb_publishable_6DDCvXWdYDvluzsx59Hq2Q_Rp65n1Xn';
 
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder'));
+// Check if the configuration is valid (not empty, not placeholder)
+export const isSupabaseConfigured = !!(
+  supabaseUrl && 
+  supabaseAnonKey && 
+  !supabaseUrl.includes('placeholder') &&
+  supabaseUrl.startsWith('http')
+);
 
-// Create client with autoRefreshToken disabled to prevent aggressive retries on bad keys
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true, // Enable refresh for better UX
-    detectSessionInUrl: true
-  }
-});
+// Create client only if configured, otherwise create a dummy client that fails gracefully
+export const supabase = isSupabaseConfigured 
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    })
+  : createClient('https://placeholder.supabase.co', 'placeholder', { auth: { persistSession: false, autoRefreshToken: false } });

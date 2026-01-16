@@ -97,11 +97,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
     setIsEditingTitle(false);
   };
 
-  if (!chat) return <div className="flex-1 flex items-center justify-center text-slate-500">Select a chat to begin</div>;
+  if (!chat) return <div className="flex-1 flex items-center justify-center text-text-muted">Select a chat to begin</div>;
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <header className="h-16 border-b border-slate-900 flex items-center justify-between px-4 md:px-8 bg-[#0a0a0a]/80 backdrop-blur-md z-10 pl-16 md:pl-8">
+      <header className="h-16 border-b border-border flex items-center justify-between px-4 md:px-8 bg-surface/80 backdrop-blur-md z-10 pl-16 md:pl-8">
         <div className="flex items-center gap-4 flex-1">
           <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center text-indigo-400 shrink-0">
             <i className={`fas ${getModeIcon(chat.mode)}`}></i>
@@ -111,7 +111,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
               <div className="flex items-center gap-2">
                 <input 
                   autoFocus
-                  className="bg-[#151515] border border-indigo-500 rounded px-2 py-0.5 text-sm text-slate-100 outline-none w-full max-w-xs"
+                  className="bg-surface2 border border-indigo-500 rounded px-2 py-0.5 text-sm text-text-main outline-none w-full max-w-xs"
                   value={tempTitle}
                   onChange={(e) => setTempTitle(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
@@ -120,11 +120,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
               </div>
             ) : (
               <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setIsEditingTitle(true); setTempTitle(chat.title); }}>
-                <h4 className="text-sm font-bold text-slate-100 truncate max-w-[200px] md:max-w-sm">{chat.title}</h4>
-                <i className="fas fa-pen text-[10px] text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                <h4 className="text-sm font-bold text-text-main truncate max-w-[200px] md:max-w-sm">{chat.title}</h4>
+                <i className="fas fa-pen text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"></i>
               </div>
             )}
-            <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest block truncate">{chat.mode} Intelligent Link</span>
+            <span className="text-[10px] text-text-muted font-black uppercase tracking-widest block truncate">{chat.mode} Intelligent Link</span>
           </div>
         </div>
       </header>
@@ -136,10 +136,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
                {msg.role === 'model' && <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 text-xs md:text-base"><i className="fas fa-brain"></i></div>}
                <div 
                 style={{ whiteSpace: 'pre-wrap' }}
-                className={`p-4 md:p-5 rounded-3xl text-sm leading-relaxed max-w-[85%] md:max-w-full ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none'}`}>
+                className={`p-4 md:p-5 rounded-3xl text-sm leading-relaxed max-w-[85%] md:max-w-full shadow-md ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-surface border border-border text-text-main rounded-tl-none'}`}>
                   {msg.content}
                </div>
-               {msg.role === 'user' && <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-slate-800 shrink-0 flex items-center justify-center text-slate-400 font-bold text-xs md:text-base">U</div>}
+               {msg.role === 'user' && <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-surface2 shrink-0 flex items-center justify-center text-text-muted font-bold text-xs md:text-base">U</div>}
             </div>
           ))}
           {isStreaming && (
@@ -147,7 +147,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white"><i className="fas fa-circle-notch animate-spin"></i></div>
               <div 
                 style={{ whiteSpace: 'pre-wrap' }}
-                className="p-4 md:p-5 rounded-3xl bg-[#151515] border border-slate-800 text-slate-300 rounded-tl-none text-sm leading-relaxed">
+                className="p-4 md:p-5 rounded-3xl bg-surface border border-border text-text-main rounded-tl-none text-sm leading-relaxed shadow-md">
                 {streamingContent || "StudyEasierAI is resonating..."}
               </div>
             </div>
@@ -155,14 +155,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
         </div>
       </div>
 
-      <div className="p-4 md:p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative group">
+      <div className="p-4 md:p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-app via-app to-transparent pointer-events-none">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative group pointer-events-auto">
           <input 
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Reason with StudyEasierAI..."
-            className="w-full bg-[#151515] border border-slate-800 rounded-2xl pl-4 md:pl-6 pr-14 md:pr-16 py-3 md:py-4 text-sm text-slate-200 outline-none transition-all focus:border-indigo-500 shadow-2xl"
+            className="w-full bg-surface border border-border rounded-2xl pl-4 md:pl-6 pr-14 md:pr-16 py-3 md:py-4 text-sm text-text-main outline-none transition-all focus:border-indigo-500 shadow-2xl"
           />
           <button 
             type="submit"

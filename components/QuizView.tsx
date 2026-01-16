@@ -55,7 +55,7 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
     window.print();
   };
 
-  if (quiz.length === 0) return <div className="text-slate-500 italic">No study intelligence found.</div>;
+  if (quiz.length === 0) return <div className="text-text-muted italic">No study intelligence found.</div>;
 
   // PRINT VIEW RENDERER
   const renderPrintView = () => (
@@ -94,16 +94,16 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
       {/* WEB INTERACTIVE VIEW (Hidden on Print) */}
       <div className="no-print">
         {isFinished ? (
-          <div className="text-center py-16 px-8 bg-[#151515] rounded-3xl border border-slate-800 shadow-2xl animate-fadeIn">
+          <div className="text-center py-16 px-8 bg-surface rounded-3xl border border-border shadow-2xl animate-fadeIn">
             <div className="mb-8 inline-flex items-center justify-center w-24 h-24 bg-amber-600/20 text-amber-400 rounded-3xl shadow-xl shadow-amber-600/10 rotate-3">
               <i className="fas fa-award text-4xl"></i>
             </div>
-            <h2 className="text-3xl font-black text-white mb-2">Mastery Complete!</h2>
-            <p className="text-slate-500 mb-8 text-lg">
+            <h2 className="text-3xl font-black text-text-main mb-2">Mastery Complete!</h2>
+            <p className="text-text-muted mb-8 text-lg">
               Accuracy: <span className="text-emerald-400 font-black">{percentage(score, quiz.length)}%</span> ({score}/{quiz.length})
             </p>
             
-            <div className="h-2 w-full bg-slate-800 rounded-full mb-10 overflow-hidden">
+            <div className="h-2 w-full bg-surface2 rounded-full mb-10 overflow-hidden border border-border">
               <div 
                 style={{ width: `${percentage(score, quiz.length)}%` }} 
                 className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000 ease-out"
@@ -125,7 +125,7 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
               </button>
               <button
                 onClick={handleDownload}
-                className="py-4 px-6 bg-slate-800 text-white rounded-2xl font-black hover:bg-slate-700 transition-all uppercase tracking-widest text-xs border border-slate-700"
+                className="py-4 px-6 bg-surface2 text-text-main rounded-2xl font-black hover:bg-surface transition-all uppercase tracking-widest text-xs border border-border"
                 title="Download TXT"
               >
                 <i className="fas fa-file-alt"></i>
@@ -146,12 +146,12 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
                 Knowledge Check {currentIndex + 1} / {quiz.length}
               </span>
               <div className="flex items-center gap-4">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                <span className="text-xs font-bold text-text-muted uppercase tracking-widest">
                   Score: {score}
                 </span>
                 <button 
                   onClick={handleExportPDF}
-                  className="text-slate-400 hover:text-white transition-colors"
+                  className="text-text-muted hover:text-text-main transition-colors"
                   title="Print Quiz"
                 >
                   <i className="fas fa-print"></i>
@@ -159,12 +159,12 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
               </div>
             </div>
 
-            <div className="bg-[#151515] rounded-3xl border border-slate-800 p-10 mb-8 shadow-xl">
-              <h3 className="text-xl font-bold text-slate-100 mb-10 leading-relaxed">{q.question}</h3>
+            <div className="bg-surface rounded-3xl border border-border p-10 mb-8 shadow-xl">
+              <h3 className="text-xl font-bold text-text-main mb-10 leading-relaxed">{q.question}</h3>
               
               <div className="space-y-4">
                 {q.options.map((option, idx) => {
-                  let style = 'bg-[#0d0d0d] border-slate-800 text-slate-400 hover:border-slate-600';
+                  let style = 'bg-surface2 border-border text-text-muted hover:border-text-muted';
                   
                   if (isAnswered) {
                     if (idx === q.correctAnswer) {
@@ -172,10 +172,10 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
                     } else if (idx === selectedOption) {
                       style = 'bg-rose-600/10 border-rose-500 text-rose-400 opacity-80';
                     } else {
-                      style = 'bg-[#0d0d0d] border-slate-800 text-slate-600 opacity-50';
+                      style = 'bg-surface2 border-border text-text-muted opacity-50';
                     }
                   } else if (idx === selectedOption) {
-                    style = 'bg-emerald-600/5 border-emerald-500 text-emerald-100 shadow-lg shadow-emerald-500/10';
+                    style = 'bg-emerald-600/5 border-emerald-500 text-text-main shadow-lg shadow-emerald-500/10';
                   }
 
                   return (
@@ -186,7 +186,7 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
                       className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center gap-5 ${style}`}
                     >
                       <span className={`w-10 h-10 flex items-center justify-center rounded-xl border text-sm font-black shrink-0 ${
-                        idx === selectedOption ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-slate-800 border-slate-700 text-slate-500'
+                        idx === selectedOption ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-surface border-border text-text-muted'
                       }`}>
                         {String.fromCharCode(65 + idx)}
                       </span>
@@ -204,7 +204,7 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
                 <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2 flex items-center gap-2">
                   <i className="fas fa-lightbulb"></i> Smart Insight
                 </h4>
-                <p className="text-slate-400 text-xs leading-relaxed italic">{q.explanation}</p>
+                <p className="text-text-muted text-xs leading-relaxed italic">{q.explanation}</p>
               </div>
             )}
 
@@ -216,7 +216,7 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
                   className={`flex-1 py-5 rounded-2xl font-black transition-all uppercase tracking-widest text-xs ${
                     selectedOption !== null 
                     ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xl shadow-emerald-600/20' 
-                    : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
+                    : 'bg-surface2 text-text-muted cursor-not-allowed border border-border'
                   }`}
                 >
                   Submit Answer

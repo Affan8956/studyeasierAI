@@ -20,7 +20,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
     setTimeout(() => setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length), 200);
   };
 
-  if (!flashcards || flashcards.length === 0) return <div className="text-center p-8 text-slate-500">No flashcards available.</div>;
+  if (!flashcards || flashcards.length === 0) return <div className="text-center p-8 text-text-muted">No flashcards available.</div>;
 
   const currentCard = flashcards[currentIndex];
 
@@ -34,14 +34,14 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
           }`}
         >
           {/* Front Face (Question) */}
-          <div className="absolute inset-0 backface-hidden bg-white rounded-3xl flex flex-col items-center justify-center p-10 text-center border border-slate-200">
+          <div className="absolute inset-0 backface-hidden bg-surface rounded-3xl flex flex-col items-center justify-center p-10 text-center border border-border">
              <div className="mb-6 w-12 h-12 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
                 <i className="fas fa-question text-xl"></i>
              </div>
              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.2em] mb-4">Question</h3>
-             <p className="text-2xl font-bold text-slate-800 leading-snug">{currentCard.front}</p>
+             <p className="text-2xl font-bold text-text-main leading-snug">{currentCard.front}</p>
              
-             <div className="absolute bottom-6 text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+             <div className="absolute bottom-6 text-text-muted text-xs font-bold uppercase tracking-widest flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                 <i className="fas fa-sync-alt"></i> Tap to Reveal
              </div>
           </div>
@@ -65,19 +65,19 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
       <div className="flex items-center justify-between w-full max-w-xl mt-10">
         <button
           onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-          className="p-4 rounded-2xl bg-[#151515] text-slate-300 hover:text-white hover:bg-slate-800 transition-all border border-slate-800"
+          className="p-4 rounded-2xl bg-surface text-text-muted hover:text-text-main hover:bg-surface2 transition-all border border-border shadow-md"
           title="Previous Card"
         >
           <i className="fas fa-arrow-left"></i>
         </button>
         
         <div className="flex flex-col items-center gap-2">
-           <span className="text-slate-400 font-black text-xs uppercase tracking-widest">
+           <span className="text-text-muted font-black text-xs uppercase tracking-widest">
              Card {currentIndex + 1} / {flashcards.length}
            </span>
            <div className="flex gap-1">
               {flashcards.map((_, i) => (
-                <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-8 bg-indigo-500' : 'w-1.5 bg-slate-800'}`}></div>
+                <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-8 bg-indigo-500' : 'w-1.5 bg-border'}`}></div>
               ))}
            </div>
         </div>

@@ -1,10 +1,11 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Message, AIMode, GroundingChunk } from "../types";
+import { Message, AIMode, GroundingChunk, AIStudyCoachResponse, AIInsightsResponse, AISessionSuggestion, StudySession } from "../types";
 
 const PRO_MODEL = "gemini-3-pro-preview";
 const FAST_MODEL = "gemini-3-flash-preview";
-const IMAGE_MODEL = "gemini-2.5-flash-image";
+const IMAGE_MODEL = "gemini-2.5-flash-image"; // For analyzing images
+const GENERATION_MODEL = "gemini-2.5-flash-image"; // For generating images (Switched from 3-pro to fix permissions)
 
 const MATH_INSTRUCTION = "When using mathematical formulas, scientific notation, or equations, ALWAYS use standard LaTeX formatting. Use '$' for inline math and '$$' for block math (equations on their own line).";
 
@@ -61,7 +62,7 @@ const retryWithBackoff = async <T>(
       const errorMsg = (error.message || "").toLowerCase();
       // Detect rate limits or transient network "aborts"
       const isRateLimit = error.status === 429 || error.code === 429 || errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('resource_exhausted');
-      const isTransientAbort = errorMsg.includes('abort') || errorMsg.includes('signal') || errorMsg.includes('fetch');
+      const isTransientAbort = errorMsg.includes('abort') || errorMsg.includes('signal') || errorMsg.includes('fetch') || errorMsg.includes('network');
       
       if ((isRateLimit || isTransientAbort) && retries < maxRetries) {
         const delay = initialDelay * Math.pow(2, retries);
@@ -73,6 +74,20 @@ const retryWithBackoff = async <T>(
       throw error;
     }
   }
+};
+
+const handleGeminiError = (error: any): never => {
+  const errorMsg = (error.message || "").toLowerCase();
+  if (error.status === 429 || errorMsg.includes('429')) {
+    throw new Error("System overloaded (Rate Limit). Please wait a moment and try again.");
+  }
+  if (errorMsg.includes('abort') || errorMsg.includes('signal') || errorMsg.includes('fetch') || errorMsg.includes('network')) {
+    throw new Error("Network connection error. Please check your internet connection.");
+  }
+  if (errorMsg.includes('permission denied')) {
+    throw new Error("Permission denied. Ensure your API key has access to the image generation models.");
+  }
+  throw new Error(error.message || "AI Engine Error");
 };
 
 // --- CHAT STREAMING ---
@@ -114,14 +129,7 @@ export const streamChatResponse = async (
     }
     return fullText;
   } catch (error: any) {
-    const errorMsg = (error.message || "").toLowerCase();
-    if (error.status === 429 || errorMsg.includes('429')) {
-      throw new Error("System overloaded (Rate Limit). Please wait a moment and try again.");
-    }
-    if (errorMsg.includes('abort') || errorMsg.includes('signal')) {
-      throw new Error("The connection was interrupted. Please try sending your message again.");
-    }
-    throw new Error(error.message || "AI Engine Error");
+    handleGeminiError(error);
   }
 };
 
@@ -156,10 +164,9 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
 
     return { text, groundingChunks };
   } catch (error: any) {
-    if (error.status === 429) {
-      throw new Error("Research Limit Reached. Please try again in 30 seconds.");
-    }
-    throw new Error(error.message || "Deep Research Failed");
+    handleGeminiError(error);
+    // TypeScript fallback
+    return { text: "Error", groundingChunks: [] };
   }
 };
 
@@ -178,11 +185,12 @@ export const generateSlideImage = async (title: string, context: string): Promis
 
   try {
     const response = await retryWithBackoff(() => ai.models.generateContent({
-      model: IMAGE_MODEL,
+      model: GENERATION_MODEL, // gemini-2.5-flash-image
       contents: { parts: [{ text: visualPrompt }] },
       config: {
         imageConfig: {
-          aspectRatio: "16:9"
+          aspectRatio: "16:9",
+          // imageSize is NOT supported in 2.5-flash-image
         }
       }
     }), 2, 1000) as GenerateContentResponse;
@@ -196,6 +204,46 @@ export const generateSlideImage = async (title: string, context: string): Promis
   } catch (err) {
     console.error("Image generation failed:", err);
     return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
+  }
+};
+
+// --- GRAPH & DIAGRAM GENERATION (NEW) ---
+export const generateStudyImage = async (prompt: string): Promise<string> => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key not found.");
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  // Enforce high technical detail for study purposes
+  const technicalPrompt = `Generate a precise, high-definition educational image.
+  Request: ${prompt}
+  Style Requirements:
+  - If a CIRCUIT DIAGRAM: Use standard IEEE symbols, clean lines, high contrast, schematic style on white or grid background.
+  - If a GRAPH: Clear axes, labeled grid lines, precise data plotting, academic textbook style.
+  - If a DIAGRAM: Detailed labels (if possible), clear leader lines, photorealistic or high-quality vector style 3D render.
+  - General: High fidelity, 4K resolution, accurate anatomical or mechanical details, neutral professional lighting.`;
+
+  try {
+    const response = await retryWithBackoff(() => ai.models.generateContent({
+      model: GENERATION_MODEL, // gemini-2.5-flash-image
+      contents: { parts: [{ text: technicalPrompt }] },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9",
+          // imageSize is NOT supported in 2.5-flash-image
+        }
+      }
+    })) as GenerateContentResponse;
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    throw new Error("Failed to generate image.");
+  } catch (error: any) {
+    handleGeminiError(error);
+    return "";
   }
 };
 
@@ -219,7 +267,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string, prompt
 
   try {
     const response = await retryWithBackoff(() => ai.models.generateContent({
-      model: PRO_MODEL,
+      model: PRO_MODEL, // Using gemini-3-pro-preview for reasoning
       contents: { parts: [imagePart, textPart] },
       config: {
         systemInstruction: `You are an expert Visual Analyst and Tutor. 
@@ -233,10 +281,8 @@ export const analyzeImage = async (base64Image: string, mimeType: string, prompt
 
     return response.text || "Could not analyze image.";
   } catch (error: any) {
-    if (error.status === 429) {
-      throw new Error("Analysis limit reached. Please wait a moment.");
-    }
-    throw new Error(error.message || "Image Analysis Failed");
+    handleGeminiError(error);
+    return "Error";
   }
 };
 
@@ -335,26 +381,169 @@ export const processUnifiedLabContent = async (
   }
   parts.push({ text: instruction });
 
-  const response = await retryWithBackoff(() => ai.models.generateContent({
-    model: PRO_MODEL,
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema,
-      tools: source.url ? [{ googleSearch: {} }] : [],
-      thinkingConfig: { thinkingBudget: 25000 },
-      maxOutputTokens: 30000,
-      temperature: 0.1
-    }
-  })) as GenerateContentResponse;
-
   try {
+    const response = await retryWithBackoff(() => ai.models.generateContent({
+      model: PRO_MODEL,
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema,
+        tools: source.url ? [{ googleSearch: {} }] : [],
+        thinkingConfig: { thinkingBudget: 25000 },
+        maxOutputTokens: 30000,
+        temperature: 0.1
+      }
+    })) as GenerateContentResponse;
+
     const text = response.text || "{}";
     if (text.includes("CONTENT_UNAVAILABLE")) {
       throw new Error("The AI could not securely retrieve the video content. This link might be private or restricted.");
     }
     return JSON.parse(text);
   } catch (e: any) {
-    throw new Error(e.message || "Deep analysis pass failed. Content might be too large or complex for extraction.");
+    handleGeminiError(e);
+  }
+};
+
+// --- INTELLIGENCE MODULES (NEW) ---
+
+export const generateStudyCoach = async (analyticsSummary: string): Promise<AIStudyCoachResponse> => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key missing.");
+  const ai = new GoogleGenAI({ apiKey });
+
+  const instruction = `You are an elite Performance Coach for a student. 
+  Analyze the provided analytics summary. 
+  Diagnose why they might be inconsistent or what they are doing well.
+  Provide a practical weekly plan.
+  Tone: Calm, professional, encouraging, zero fluff.`;
+
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      diagnosis: { type: Type.STRING },
+      weekly_plan: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            day: { type: Type.STRING },
+            recommended_minutes: { type: Type.INTEGER },
+            focus: { type: Type.STRING }
+          },
+          required: ["day", "recommended_minutes", "focus"]
+        }
+      },
+      motivation: { type: Type.STRING }
+    },
+    required: ["diagnosis", "weekly_plan", "motivation"]
+  };
+
+  try {
+    const response = await retryWithBackoff(() => ai.models.generateContent({
+      model: FAST_MODEL,
+      contents: { parts: [{ text: instruction }, { text: `Analytics Summary: ${analyticsSummary}` }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.7
+      }
+    })) as GenerateContentResponse;
+
+    return JSON.parse(response.text || "{}");
+  } catch (e: any) {
+    console.error("Coach gen failed", e);
+    throw new Error("Coach unavailable");
+  }
+};
+
+export const generateStudyInsights = async (sessions: StudySession[]): Promise<AIInsightsResponse> => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key missing.");
+  const ai = new GoogleGenAI({ apiKey });
+
+  const sessionSummary = JSON.stringify(sessions.slice(0, 50)); // Limit payload
+
+  const instruction = `Analyze the last 30 days of study sessions.
+  Identify patterns, peak hours, and effective modes.
+  Provide concise, data-driven insights.`;
+
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      insights: { type: Type.ARRAY, items: { type: Type.STRING } },
+      suggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+      study_pattern: {
+        type: Type.OBJECT,
+        properties: {
+          best_time: { type: Type.STRING, enum: ["morning", "afternoon", "evening", "night"] },
+          most_effective_mode: { type: Type.STRING }
+        },
+        required: ["best_time", "most_effective_mode"]
+      }
+    },
+    required: ["insights", "suggestions", "study_pattern"]
+  };
+
+  try {
+    const response = await retryWithBackoff(() => ai.models.generateContent({
+      model: FAST_MODEL,
+      contents: { parts: [{ text: instruction }, { text: `Session Data: ${sessionSummary}` }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 0.5
+      }
+    })) as GenerateContentResponse;
+
+    return JSON.parse(response.text || "{}");
+  } catch (e: any) {
+    console.error("Insights gen failed", e);
+    throw new Error("Insights unavailable");
+  }
+};
+
+export const generateSessionSuggestion = async (): Promise<AISessionSuggestion> => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API Key missing.");
+  const ai = new GoogleGenAI({ apiKey });
+
+  const instruction = `Suggest an optimal study session configuration for right now.
+  Be random but scientifically grounded (Pomodoro, Active Recall).
+  Also suggest a specific time period (e.g., '8 PM - 10 PM') and why it's good for a certain cognitive task.`;
+
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      recommended_duration: { type: Type.INTEGER },
+      recommended_mode: { type: Type.STRING, enum: ["focus", "deep_study", "revision"] },
+      recommended_feature: { type: Type.STRING, enum: ["slides", "flashcards", "quiz", "summary"] },
+      reason: { type: Type.STRING },
+      time_insight: { type: Type.STRING, description: "A specific time block advice e.g. '8 PM - 10 PM is optimal for...'" }
+    },
+    required: ["recommended_duration", "recommended_mode", "recommended_feature", "reason", "time_insight"]
+  };
+
+  try {
+    const response = await retryWithBackoff(() => ai.models.generateContent({
+      model: FAST_MODEL,
+      contents: { parts: [{ text: instruction }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema,
+        temperature: 1.0 // High temp for variety
+      }
+    })) as GenerateContentResponse;
+
+    return JSON.parse(response.text || "{}");
+  } catch (e: any) {
+    // Fallback
+    return {
+       recommended_duration: 25,
+       recommended_mode: 'focus',
+       recommended_feature: 'flashcards',
+       reason: 'Classic Pomodoro technique for retention.',
+       time_insight: 'Late evenings are great for reviewing material before sleep.'
+    };
   }
 };

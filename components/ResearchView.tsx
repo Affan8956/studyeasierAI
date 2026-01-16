@@ -33,35 +33,35 @@ const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResea
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-      {/* Top Bar with History Toggle */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* Top Bar with History Toggle - Moved down to avoid Theme Selector overlap */}
+      <div className="absolute top-24 right-4 z-20">
         <button 
           onClick={() => setShowHistory(!showHistory)}
-          className="bg-[#151515] hover:bg-[#202020] text-cyan-400 border border-cyan-500/30 px-4 py-2 rounded-xl flex items-center gap-2 shadow-xl transition-all font-bold text-xs uppercase tracking-widest"
+          className="bg-surface hover:bg-surface2 text-cyan-400 border border-cyan-500/30 px-4 py-2 rounded-xl flex items-center gap-2 shadow-xl transition-all font-bold text-xs uppercase tracking-widest"
         >
           <i className="fas fa-history"></i> History
         </button>
       </div>
 
       {/* History Sidebar/Drawer */}
-      <div className={`absolute top-0 right-0 h-full w-80 bg-[#0d0d0d] border-l border-slate-800 z-30 transform transition-transform duration-300 shadow-2xl ${showHistory ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`absolute top-0 right-0 h-full w-80 bg-sidebar border-l border-border z-30 transform transition-transform duration-300 shadow-2xl ${showHistory ? 'translate-x-0' : 'translate-x-full'}`}>
          <div className="p-6 h-full flex flex-col">
             <div className="flex items-center justify-between mb-6">
-               <h3 className="text-sm font-black text-white uppercase tracking-widest">Recent Research</h3>
-               <button onClick={() => setShowHistory(false)} className="text-slate-500 hover:text-white"><i className="fas fa-times"></i></button>
+               <h3 className="text-sm font-black text-text-main uppercase tracking-widest">Recent Research</h3>
+               <button onClick={() => setShowHistory(false)} className="text-text-muted hover:text-text-main"><i className="fas fa-times"></i></button>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
                {savedResearch.filter(a => a.type === 'research').length === 0 ? (
-                 <p className="text-slate-600 text-xs text-center py-4">No search history.</p>
+                 <p className="text-text-muted text-xs text-center py-4">No search history.</p>
                ) : (
                  savedResearch.filter(a => a.type === 'research').map(asset => (
                    <div 
                      key={asset.id} 
                      onClick={() => handleLoadHistory(asset)}
-                     className="p-3 rounded-xl bg-[#151515] border border-slate-800 hover:border-cyan-500/50 cursor-pointer group"
+                     className="p-3 rounded-xl bg-surface border border-border hover:border-cyan-500/50 cursor-pointer group"
                    >
-                      <h4 className="text-xs font-bold text-slate-300 group-hover:text-cyan-400 truncate mb-1">{asset.title}</h4>
-                      <p className="text-[9px] text-slate-600 font-bold uppercase">{new Date(asset.timestamp).toLocaleDateString()}</p>
+                      <h4 className="text-xs font-bold text-text-muted group-hover:text-cyan-400 truncate mb-1">{asset.title}</h4>
+                      <p className="text-[9px] text-text-muted font-bold uppercase">{new Date(asset.timestamp).toLocaleDateString()}</p>
                    </div>
                  ))
                )}
@@ -75,13 +75,13 @@ const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResea
              <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-500/10 text-cyan-400 rounded-2xl mb-6 shadow-2xl shadow-cyan-500/10">
                 <i className="fas fa-globe-americas text-3xl"></i>
              </div>
-             <h1 className="text-4xl font-black mb-2 tracking-tight text-white">Deep Research</h1>
-             <p className="text-slate-500">Live web grounding via Google Search + Gemini 3 Flash.</p>
+             <h1 className="text-4xl font-black mb-2 tracking-tight text-text-main">Deep Research</h1>
+             <p className="text-text-muted">Live web grounding via Google Search + Gemini 3 Flash.</p>
           </header>
 
           {!result && !isLoading && !error && (
-            <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-3xl">
-               <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Enter a complex topic to begin analysis</p>
+            <div className="text-center py-12 border-2 border-dashed border-border rounded-3xl">
+               <p className="text-text-muted font-bold uppercase tracking-widest text-xs">Enter a complex topic to begin analysis</p>
             </div>
           )}
 
@@ -96,13 +96,13 @@ const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResea
                 <div className="flex items-center gap-4 justify-center text-cyan-400 font-black uppercase tracking-widest text-xs">
                    <i className="fas fa-satellite-dish animate-pulse"></i> Scanning Global Indices...
                 </div>
-                <div className="h-64 bg-slate-900/50 rounded-3xl animate-pulse"></div>
+                <div className="h-64 bg-surface/50 rounded-3xl animate-pulse"></div>
                 <div className="grid grid-cols-3 gap-4">
-                   <div className="h-24 bg-slate-900/50 rounded-2xl animate-pulse delay-75"></div>
-                   <div className="h-24 bg-slate-900/50 rounded-2xl animate-pulse delay-150"></div>
-                   <div className="h-24 bg-slate-900/50 rounded-2xl animate-pulse delay-200"></div>
+                   <div className="h-24 bg-surface/50 rounded-2xl animate-pulse delay-75"></div>
+                   <div className="h-24 bg-surface/50 rounded-2xl animate-pulse delay-150"></div>
+                   <div className="h-24 bg-surface/50 rounded-2xl animate-pulse delay-200"></div>
                 </div>
-                <p className="text-center text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+                <p className="text-center text-text-muted text-[10px] font-bold uppercase tracking-widest">
                   Processing in background... You can switch tabs safely.
                 </p>
              </div>
@@ -114,8 +114,8 @@ const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResea
 
               {/* Source Verification Nodes */}
               {result.groundingChunks.length > 0 && (
-                <div className="bg-[#111] border border-slate-800 rounded-3xl p-8">
-                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                <div className="bg-surface border border-border rounded-3xl p-8 shadow-xl">
+                  <h3 className="text-xs font-black text-text-muted uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                     <i className="fas fa-link text-cyan-500"></i> Source Verification Nodes
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -127,16 +127,16 @@ const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResea
                           href={chunk.web.uri} 
                           target="_blank" 
                           rel="noreferrer"
-                          className="group p-4 bg-[#0a0a0a] border border-slate-800 hover:border-cyan-500/50 rounded-xl transition-all flex items-start gap-4 hover:bg-white/5"
+                          className="group p-4 bg-surface2 border border-border hover:border-cyan-500/50 rounded-xl transition-all flex items-start gap-4 hover:bg-surface shadow-sm"
                         >
                           <div className="w-8 h-8 rounded-lg bg-cyan-900/20 text-cyan-400 flex items-center justify-center shrink-0 font-bold text-xs group-hover:scale-110 transition-transform">
                              {idx + 1}
                           </div>
                           <div className="min-w-0">
-                             <div className="font-bold text-sm text-slate-200 truncate group-hover:text-cyan-400 transition-colors">{chunk.web.title}</div>
-                             <div className="text-[10px] text-slate-600 truncate mt-1 font-mono">{new URL(chunk.web.uri).hostname}</div>
+                             <div className="font-bold text-sm text-text-main truncate group-hover:text-cyan-400 transition-colors">{chunk.web.title}</div>
+                             <div className="text-[10px] text-text-muted truncate mt-1 font-mono">{new URL(chunk.web.uri).hostname}</div>
                           </div>
-                          <i className="fas fa-external-link-alt text-[10px] text-slate-700 ml-auto group-hover:text-cyan-500"></i>
+                          <i className="fas fa-external-link-alt text-[10px] text-text-muted ml-auto group-hover:text-cyan-500"></i>
                         </a>
                       );
                     })}
@@ -148,14 +148,14 @@ const ResearchView: React.FC<ResearchViewProps> = ({ state, onSearch, savedResea
         </div>
       </div>
 
-      <div className="p-6 md:p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0d0d0d] via-[#0d0d0d] to-transparent z-10">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
+      <div className="p-6 md:p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-app via-app to-transparent z-10 pointer-events-none">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative pointer-events-auto">
           <input
             type="text"
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
             placeholder="Search the live web..."
-            className="w-full bg-[#151515] border border-slate-800 rounded-2xl px-6 py-5 pr-16 text-sm text-slate-200 outline-none transition-all focus:border-cyan-500 shadow-2xl focus:ring-1 focus:ring-cyan-500/20"
+            className="w-full bg-surface border border-border rounded-2xl px-6 py-5 pr-16 text-sm text-text-main outline-none transition-all focus:border-cyan-500 shadow-2xl focus:ring-1 focus:ring-cyan-500/20"
           />
           <button
             type="submit"
