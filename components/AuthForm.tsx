@@ -66,6 +66,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
     setTimer(COOLDOWN_TIME);
   };
 
+  const getErrorMessage = (err: any) => {
+    if (typeof err === 'string') return err;
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'object' && err !== null && 'message' in err) return String(err.message);
+    return 'Authentication failed. Please check your credentials.';
+  };
+
   const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
@@ -78,7 +85,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
           const result = await login(email, password);
           onAuthComplete(result.user, result.token || '');
         } catch (loginErr: any) {
-          if (loginErr.message === 'EMAIL_NOT_CONFIRMED') {
+          const msg = getErrorMessage(loginErr);
+          if (msg === 'EMAIL_NOT_CONFIRMED') {
             setStep('waiting');
             startTimer();
           } else {
@@ -88,13 +96,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
       } else {
         if (password !== confirmPassword) throw new Error('Passwords do not match.');
         if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+        
+        // Password complexity check
+        if (!/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+          throw new Error('Password must contain at least one uppercase letter, one digit, and one symbol.');
+        }
 
         try {
           await signup(name, email, password);
           setStep('waiting');
           startTimer();
         } catch (signupErr: any) {
-          if (signupErr.message === 'USER_ALREADY_EXISTS') {
+          const msg = getErrorMessage(signupErr);
+          if (msg === 'USER_ALREADY_EXISTS') {
             // User exists but likely isn't confirmed or they just need to log in
             setError("This email is already registered. If you haven't confirmed it, check your inbox.");
             setStep('waiting');
@@ -105,7 +119,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please check your credentials.');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -169,7 +183,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthComplete }) => {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. John Doe"
+                      placeholder=""
                       className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-0 focus:border-indigo-600 outline-none transition-all text-slate-900 font-bold placeholder:text-slate-300"
                     />
                   </div>

@@ -25,13 +25,32 @@ const createLocalUser = (email: string, name?: string): User => ({
 });
 
 /**
- * Robust wrapper for Supabase calls with timeout protection
+ * Robust wrapper for Supabase calls with timeout protection.
+ * Ensures that if a timeout wins, the original promise's rejection is caught silently
+ * to prevent "signal is aborted" or "unhandled rejection" errors.
  */
 const withTimeout = <T>(promise: Promise<T>, ms: number = 8000): Promise<T> => {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('CONNECTION_TIMEOUT')), ms);
+  });
+
   return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('CONNECTION_TIMEOUT')), ms))
-  ]);
+    promise.then(val => {
+      clearTimeout(timeoutId);
+      return val;
+    }),
+    timeoutPromise
+  ]).catch(err => {
+    // If it's a timeout, we let the original promise fail silently in the background
+    // if it eventually finishes or aborts.
+    if (err.message === 'CONNECTION_TIMEOUT') {
+      promise.catch(() => {}); // Sink the original promise's error
+      throw err;
+    }
+    clearTimeout(timeoutId);
+    throw err;
+  });
 };
 
 export const login = async (email: string, password: string) => {
@@ -64,9 +83,11 @@ export const login = async (email: string, password: string) => {
     if (
       err.message === 'CONNECTION_TIMEOUT' || 
       err.message?.includes('Failed to fetch') || 
-      err.message?.includes('Invalid API key')
+      err.message?.includes('Invalid API key') ||
+      err.message?.includes('abort') ||
+      err.message?.includes('signal')
     ) {
-      console.warn("Backend unreachable. Falling back to Local Mode.", err.message);
+      console.warn("Backend unreachable or request aborted. Falling back to Local Mode.", err.message);
       return { user: createLocalUser(email), token: 'local-offline-token' };
     }
 
@@ -78,7 +99,6 @@ export const login = async (email: string, password: string) => {
 };
 
 export const signup = async (name: string, email: string, password: string) => {
-  // Immediate Local Fallback
   if (!isSupabaseConfigured) {
     return createLocalUser(email, name);
   }
@@ -96,13 +116,14 @@ export const signup = async (name: string, email: string, password: string) => {
     if (error) throw error;
     return data.user;
   } catch (err: any) {
-    // Graceful Fallback
     if (
       err.message === 'CONNECTION_TIMEOUT' || 
       err.message?.includes('Failed to fetch') || 
-      err.message?.includes('Invalid API key')
+      err.message?.includes('Invalid API key') ||
+      err.message?.includes('abort') ||
+      err.message?.includes('signal')
     ) {
-      console.warn("Backend unreachable. Creating Local User.");
+      console.warn("Backend unreachable during signup. Creating Local User.");
       return createLocalUser(email, name);
     }
 
@@ -114,7 +135,7 @@ export const signup = async (name: string, email: string, password: string) => {
 };
 
 export const resendConfirmationEmail = async (email: string) => {
-  if (!isSupabaseConfigured) return; // No-op in local mode
+  if (!isSupabaseConfigured) return; 
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email: email,
@@ -153,7 +174,6 @@ export const getCurrentSession = async () => {
       token: session.access_token 
     };
   } catch (e) {
-    // If backend check fails, assume no session rather than crashing
     return null;
   }
 };

@@ -2,39 +2,33 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { LabAsset, UserProfile, ShareRequest } from '../types';
 
-const isValidUUID = (id: string) => {
-  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return regex.test(id);
-};
-
 /**
  * Searches for users via the Supabase RPC function.
  */
 export const searchUsers = async (query: string): Promise<UserProfile[]> => {
   if (!isSupabaseConfigured || query.length < 3) return [];
 
-  try {
-    const { data, error } = await supabase.rpc('search_users', { search_term: query });
-    if (error) {
-      // If the function doesn't exist or other db error, log message to avoid [object Object]
-      console.warn("Search users error:", error.message);
-      return [];
-    }
-    return data || [];
-  } catch (err: any) {
-    console.error("Search users exception:", err.message || err);
+  const { data, error } = await supabase.rpc('search_users', { search_term: query });
+
+  if (error) {
+    console.error("Search users error:", error);
     return [];
   }
+  return data || [];
 };
 
 /**
  * Sends a sharing request (sets status to pending).
  */
-export const sendShareRequest = async (ownerId: string, ownerName: string, targetUserId: string, targetUserEmail: string, assetId?: string) => {
+export const sendShareRequest = async (
+  ownerId: string, 
+  ownerName: string, 
+  targetUserId: string, 
+  targetUserEmail: string, 
+  assetId?: string
+) => {
   if (!isSupabaseConfigured) throw new Error("Cloud features disabled (Local Mode).");
-  if (!isValidUUID(ownerId)) throw new Error("Your account is in Local Mode (ID not synced). Cannot share.");
-  if (!isValidUUID(targetUserId)) throw new Error("Invalid Target User ID.");
-
+  
   const { data, error } = await supabase
     .from('shared_resources')
     .insert([{
@@ -47,29 +41,59 @@ export const sendShareRequest = async (ownerId: string, ownerName: string, targe
       status: 'pending' // Explicitly setting pending
     }]);
     
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message || "Failed to send share request");
   return data;
 };
 
 /**
  * Fetches pending requests for the current user.
+ * Now uses direct client query to avoid SQL UUID casting issues.
  */
 export const getPendingRequests = async (userId: string): Promise<ShareRequest[]> => {
   if (!isSupabaseConfigured) return [];
-  if (!isValidUUID(userId)) return []; // Silent return for local users
   
-  try {
-    const { data, error } = await supabase.rpc('get_pending_requests', { current_user_id: userId });
+  // Fetch from shared_resources table directly
+  const { data: shares, error } = await supabase
+    .from('shared_resources')
+    .select('id, resource_type, asset_id, shared_by_name, created_at')
+    .eq('target_user_id', userId)
+    .eq('status', 'pending');
 
-    if (error) {
-      console.error("Fetch requests error:", error.message);
-      return [];
-    }
-    return data || [];
-  } catch (err: any) {
-    console.error("Fetch requests exception:", err.message || err);
+  if (error) {
+    console.error("Fetch requests error:", error);
     return [];
   }
+
+  if (!shares || shares.length === 0) return [];
+
+  // Manually join with assets to get titles
+  const enrichedRequests = await Promise.all(shares.map(async (share) => {
+    let assetTitle = 'Entire Vault';
+    
+    if (share.resource_type === 'asset' && share.asset_id) {
+      const { data: asset } = await supabase
+        .from('assets')
+        .select('title')
+        .eq('id', share.asset_id)
+        .maybeSingle();
+        
+      if (asset) {
+        assetTitle = asset.title;
+      } else {
+        assetTitle = 'Unavailable Resource';
+      }
+    }
+
+    return {
+      request_id: share.id,
+      resource_type: share.resource_type,
+      asset_title: assetTitle,
+      shared_by_name: share.shared_by_name,
+      created_at: share.created_at
+    } as ShareRequest;
+  }));
+
+  return enrichedRequests;
 };
 
 /**
@@ -83,7 +107,7 @@ export const respondToShareRequest = async (requestId: string, status: 'accepted
     .update({ status: status })
     .eq('id', requestId);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message || "Failed to update request status");
 };
 
 /**
@@ -91,7 +115,6 @@ export const respondToShareRequest = async (requestId: string, status: 'accepted
  */
 export const getSharedContent = async (userId: string): Promise<LabAsset[]> => {
   if (!isSupabaseConfigured) return [];
-  if (!isValidUUID(userId)) return [];
 
   try {
     // 1. Find all shares targeting this user that are ACCEPTED
@@ -102,36 +125,42 @@ export const getSharedContent = async (userId: string): Promise<LabAsset[]> => {
       .eq('status', 'accepted');
 
     if (error) {
-      console.warn("Error fetching shared resources:", error.message);
+      console.error("Error fetching shares:", error);
       return [];
     }
+    
     if (!shares || shares.length === 0) return [];
 
     const sharedAssets: LabAsset[] = [];
 
     // 2. Resolve assets for each share
     for (const share of shares) {
-      if (share.resource_type === 'asset' && share.asset_id) {
-        // Fetch specific asset
-        const { data: asset } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('id', share.asset_id)
-          .maybeSingle(); // Use maybeSingle to handle deleted assets gracefully
-        
-        if (asset) {
-          sharedAssets.push(mapDbAssetToType(asset, share.shared_by_name));
-        }
-      } else if (share.resource_type === 'vault') {
-        // Fetch ALL assets from the owner (Vault Share)
-        const { data: assets } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('user_id', share.owner_id);
+      try {
+        if (share.resource_type === 'asset' && share.asset_id) {
+          // Fetch specific asset
+          const { data: asset, error: assetError } = await supabase
+            .from('assets')
+            .select('*')
+            .eq('id', share.asset_id)
+            .maybeSingle(); // Use maybeSingle to prevent throwing on 0 rows (RLS hidden)
           
-        if (assets) {
-          assets.forEach((a: any) => sharedAssets.push(mapDbAssetToType(a, share.shared_by_name)));
+          if (asset && !assetError) {
+            sharedAssets.push(mapDbAssetToType(asset, share.shared_by_name));
+          }
+        } else if (share.resource_type === 'vault') {
+          // Fetch ALL assets from the owner (Vault Share)
+          const { data: assets, error: assetsError } = await supabase
+            .from('assets')
+            .select('*')
+            .eq('user_id', share.owner_id);
+            
+          if (assets && !assetsError) {
+            assets.forEach((a: any) => sharedAssets.push(mapDbAssetToType(a, share.shared_by_name)));
+          }
         }
+      } catch (innerErr) {
+        console.warn(`Failed to resolve share ${share.id}`, innerErr);
+        // Continue loop even if one share fails
       }
     }
 
@@ -144,7 +173,7 @@ export const getSharedContent = async (userId: string): Promise<LabAsset[]> => {
     });
 
   } catch (err: any) {
-    console.warn("Error processing shared content:", err.message || err);
+    console.warn("Error fetching shared content:", err.message || err);
     return [];
   }
 };

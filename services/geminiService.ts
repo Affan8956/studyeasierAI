@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Message, AIMode, GroundingChunk } from "../types";
 
@@ -45,7 +46,7 @@ const getApiKey = (): string => {
 };
 
 /**
- * Retry Helper for Rate Limits (429)
+ * Retry Helper for Rate Limits (429) and Transient Connection Drops (Aborted Signals)
  */
 const retryWithBackoff = async <T>(
   operation: () => Promise<T>,
@@ -57,11 +58,14 @@ const retryWithBackoff = async <T>(
     try {
       return await operation();
     } catch (error: any) {
-      const isRateLimit = error.status === 429 || error.code === 429 || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('RESOURCE_EXHAUSTED');
+      const errorMsg = (error.message || "").toLowerCase();
+      // Detect rate limits or transient network "aborts"
+      const isRateLimit = error.status === 429 || error.code === 429 || errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('resource_exhausted');
+      const isTransientAbort = errorMsg.includes('abort') || errorMsg.includes('signal') || errorMsg.includes('fetch');
       
-      if (isRateLimit && retries < maxRetries) {
+      if ((isRateLimit || isTransientAbort) && retries < maxRetries) {
         const delay = initialDelay * Math.pow(2, retries);
-        console.warn(`Gemini API Rate Limit hit. Retrying in ${delay}ms... (Attempt ${retries + 1}/${maxRetries})`);
+        console.warn(`Gemini API error detected (${isRateLimit ? 'Rate Limit' : 'Transient Abort'}). Retrying in ${delay}ms... (Attempt ${retries + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         retries++;
         continue;
@@ -87,8 +91,6 @@ export const streamChatResponse = async (
     parts: [{ text: msg.content }]
   })).concat([{ role: 'user', parts: [{ text: currentMessage }] }]);
 
-  // Tutor mode gets a specific thinking budget of 2048 as requested.
-  // Other modes use a higher budget for deep reasoning.
   const thinkingBudget = mode === 'tutor' ? 2048 : 15000;
 
   try {
@@ -112,8 +114,12 @@ export const streamChatResponse = async (
     }
     return fullText;
   } catch (error: any) {
-    if (error.status === 429 || error.message?.includes('429')) {
+    const errorMsg = (error.message || "").toLowerCase();
+    if (error.status === 429 || errorMsg.includes('429')) {
       throw new Error("System overloaded (Rate Limit). Please wait a moment and try again.");
+    }
+    if (errorMsg.includes('abort') || errorMsg.includes('signal')) {
+      throw new Error("The connection was interrupted. Please try sending your message again.");
     }
     throw new Error(error.message || "AI Engine Error");
   }
@@ -128,7 +134,7 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
 
   try {
     const response = await retryWithBackoff(() => ai.models.generateContent({
-      model: FAST_MODEL, // gemini-3-flash-preview
+      model: FAST_MODEL,
       contents: query,
       config: {
         tools: [{ googleSearch: {} }],
@@ -140,11 +146,7 @@ export const performDeepResearch = async (query: string): Promise<{ text: string
     })) as GenerateContentResponse;
 
     const text = response.text || "No results found.";
-    
-    // Extract grounding metadata for the "Source Verification Nodes"
     const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-
-    // Map SDK types to App types to fix incompatibility
     const groundingChunks: GroundingChunk[] = rawChunks.map((chunk: any) => ({
       web: chunk.web ? {
         uri: chunk.web.uri || '',
@@ -183,7 +185,7 @@ export const generateSlideImage = async (title: string, context: string): Promis
           aspectRatio: "16:9"
         }
       }
-    }), 2, 1000) as GenerateContentResponse; // Fewer retries for images to keep UI snappy
+    }), 2, 1000) as GenerateContentResponse;
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
@@ -193,7 +195,6 @@ export const generateSlideImage = async (title: string, context: string): Promis
     throw new Error("No image data returned");
   } catch (err) {
     console.error("Image generation failed:", err);
-    // Fallback to loremflickr on error
     return `https://loremflickr.com/1280/720/${encodeURIComponent(title || 'education')}`;
   }
 };
@@ -218,7 +219,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string, prompt
 
   try {
     const response = await retryWithBackoff(() => ai.models.generateContent({
-      model: PRO_MODEL, // Using Pro for complex reasoning on images (math/charts)
+      model: PRO_MODEL,
       contents: { parts: [imagePart, textPart] },
       config: {
         systemInstruction: `You are an expert Visual Analyst and Tutor. 
@@ -226,7 +227,7 @@ export const analyzeImage = async (base64Image: string, mimeType: string, prompt
         2. If it contains Math: Solve it step-by-step using LaTeX ($...$).
         3. If it's a Diagram: Explain the components and relationships.
         4. Format output with clear Markdown headers.`,
-        thinkingConfig: { thinkingBudget: 10240 }, // High reasoning budget for visual analysis
+        thinkingConfig: { thinkingBudget: 10240 },
       }
     })) as GenerateContentResponse;
 

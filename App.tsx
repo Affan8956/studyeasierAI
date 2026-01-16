@@ -55,6 +55,14 @@ const App: React.FC = () => {
     error: null
   });
 
+  // Helper to safely extract error message
+  const getErrorMessage = (err: any): string => {
+    if (typeof err === 'string') return err;
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'object' && err !== null && 'message' in err) return String(err.message);
+    return "An unknown error occurred";
+  };
+
   useEffect(() => {
     // 1. HARD FAILSAFE: Force loading off after 2.5 seconds no matter what.
     const hardStop = setTimeout(() => {
@@ -152,7 +160,7 @@ const App: React.FC = () => {
       }
       setIsMobileMenuOpen(false);
     } catch (e: any) {
-      console.error("Failed to create new chat:", e.message || e);
+      console.error("Failed to create new chat:", e);
     } finally {
       setIsInitializingChat(false);
     }
@@ -250,7 +258,7 @@ const App: React.FC = () => {
       await handleSaveAsset({ title: result.title, type: 'slides', content: result.slides, sourceName });
 
     } catch (err: any) {
-      setLabState(prev => ({ ...prev, isLoading: false, error: err.message || "Processing failed" }));
+      setLabState(prev => ({ ...prev, isLoading: false, error: getErrorMessage(err) }));
     }
   };
 
@@ -269,7 +277,7 @@ const App: React.FC = () => {
       });
 
     } catch (err: any) {
-      setResearchState(prev => ({ ...prev, isLoading: false, error: err.message || "Research failed" }));
+      setResearchState(prev => ({ ...prev, isLoading: false, error: getErrorMessage(err) }));
     }
   };
 
@@ -289,7 +297,7 @@ const App: React.FC = () => {
       });
 
     } catch (err: any) {
-      setVisionState(prev => ({ ...prev, isLoading: false, error: err.message || "Analysis failed" }));
+      setVisionState(prev => ({ ...prev, isLoading: false, error: getErrorMessage(err) }));
     }
   };
 

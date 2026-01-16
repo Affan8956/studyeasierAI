@@ -12,28 +12,44 @@ let cloudSyncActive = {
 };
 
 /**
- * Wraps a promise with a timeout.
+ * Robust wrapper for promises with timeout protection.
+ * Sinks original promise rejections to prevent aborted signal errors.
  */
 const withTimeout = <T>(promise: Promise<T>, ms: number = 5000, fallback: T): Promise<T> => {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
+
   return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
-  ]);
+    promise.then(val => {
+      clearTimeout(timeoutId);
+      return val;
+    }),
+    timeoutPromise
+  ]).catch(() => {
+    // If the timeout wins or original fails, we handle it gracefully
+    clearTimeout(timeoutId);
+    return fallback;
+  });
 };
 
 const handleSupabaseError = (error: any, feature: 'chats' | 'assets') => {
-  console.warn(`Supabase ${feature} error:`, error.message || error);
-  // If we get connection errors, 404s, or auth errors, downgrade to local mode
+  const errorMsg = (error.message || "").toLowerCase();
+  console.warn(`Supabase ${feature} error:`, errorMsg);
+  
   if (
     error.code === 'PGRST204' || 
     error.code === 'PGRST205' || 
     error.status === 404 || 
-    error.message?.includes('not found') ||
-    error.message?.includes('Failed to fetch') ||
-    error.message?.includes('Invalid API key')
+    errorMsg.includes('not found') ||
+    errorMsg.includes('failed to fetch') ||
+    errorMsg.includes('invalid api key') ||
+    errorMsg.includes('abort') ||
+    errorMsg.includes('signal')
   ) {
     if (cloudSyncActive[feature]) {
-      console.warn(`Supabase ${feature} sync disabled: ${error.message || 'Connection failed'}. Switching to Local Mode.`);
+      console.warn(`Supabase ${feature} sync disabled: ${errorMsg || 'Connection issues'}. Switching to Local Mode.`);
       cloudSyncActive[feature] = false;
     }
   }
@@ -48,7 +64,7 @@ export const saveChat = async (userId: string, chat: ChatSession) => {
   await db.saveChat(chat);
 
   if (!cloudSyncActive.chats) return;
-  if (!isValidUUID(userId)) return; // Don't try to save to cloud for local-only users
+  if (!isValidUUID(userId)) return;
 
   try {
     const { error } = await supabase
@@ -58,7 +74,7 @@ export const saveChat = async (userId: string, chat: ChatSession) => {
         user_id: userId,
         title: chat.title,
         mode: chat.mode,
-        messages: chat.messages, // Now explicitly saving messages
+        messages: chat.messages,
         updated_at: new Date().toISOString()
       });
     if (error) handleSupabaseError(error, 'chats');
@@ -105,8 +121,6 @@ export const getHistory = async (userId: string): Promise<ChatSession[]> => {
         updatedAt: new Date(chat.updated_at).getTime()
       }));
 
-      // Merge strategy: if cloud has data, it generally wins, but we should probably respect local if it's newer. 
-      // For simplicity in this app, Cloud is Source of Truth if available.
       if (synced.length > 0) return synced;
     }
   } catch (e: any) {
@@ -173,12 +187,6 @@ export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'ti
 
   if (cloudSyncActive.assets && isValidUUID(userId)) {
     try {
-      // Ensure content is compatible with JSONB. 
-      // If it's a string (summary), we wrap it if needed, or rely on client.
-      // Supabase JS client handles strings for JSONB columns by treating them as JSON strings.
-      // However, if the string contains special chars, it might fail if not stringified.
-      // For safety, we can ensure we are passing what we expect.
-      
       const { error } = await supabase
         .from('assets')
         .insert([{
@@ -186,7 +194,7 @@ export const saveAsset = async (userId: string, asset: Omit<LabAsset, 'id' | 'ti
           user_id: userId,
           title: asset.title,
           type: asset.type,
-          content: asset.content, // Supabase client should handle object/array/string auto-serialization
+          content: asset.content,
           source_name: asset.sourceName
         }]);
       if (error) handleSupabaseError(error, 'assets');
@@ -227,12 +235,6 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
         sourceName: asset.source_name,
         timestamp: new Date(asset.created_at).getTime()
       }));
-      
-      // If cloud has data, return it.
-      // If cloud returns empty array (data exists but length 0), it means user has no assets in cloud.
-      // In that case, we should return empty array, NOT localAssets, because localAssets might be stale/empty on new device.
-      // However, if the user was working offline, localAssets might have unsynced data.
-      // For this simplified app, we assume Cloud is master. 
       return synced;
     }
   } catch (e: any) {

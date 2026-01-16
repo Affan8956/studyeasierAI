@@ -35,7 +35,6 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
   const [userSearchResults, setUserSearchResults] = useState<UserProfile[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'searching' | 'sending' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Load shared content or requests when switching tabs
   useEffect(() => {
@@ -90,22 +89,25 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
     setUserSearchResults([]);
     setSelectedUser(null);
     setShareStatus('idle');
-    setErrorMessage(null);
     setIsSharing(true);
   };
 
   const handleSendRequest = async () => {
     if (!selectedUser) return;
     setShareStatus('sending');
-    setErrorMessage(null);
     try {
-      await sendShareRequest(user.id, user.name, selectedUser.id, selectedUser.email, shareTargetAssetId || undefined);
+      await sendShareRequest(
+        user.id, 
+        user.name, 
+        selectedUser.id, 
+        selectedUser.email, 
+        shareTargetAssetId || undefined
+      );
       setShareStatus('success');
       setTimeout(() => setIsSharing(false), 2000);
-    } catch (e: any) {
-      console.error("Share error:", e);
+    } catch (e) {
+      console.error(e);
       setShareStatus('error');
-      setErrorMessage(e.message || "Failed to send request");
     }
   };
 
@@ -382,9 +384,7 @@ const Vault: React.FC<VaultProps> = ({ user, assets, chats, onViewAsset, onDelet
                 </div>
               )}
 
-              {shareStatus === 'error' && (
-                <p className="text-rose-500 text-xs font-bold mb-4">{errorMessage || "Failed to send request."}</p>
-              )}
+              {shareStatus === 'error' && <p className="text-rose-500 text-xs font-bold mb-4">Failed to send request.</p>}
               {shareStatus === 'success' && <p className="text-emerald-500 text-xs font-bold mb-4">Request sent successfully!</p>}
 
               <div className="flex gap-4 mt-6">
