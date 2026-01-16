@@ -18,7 +18,12 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
   const [images, setImages] = useState<Record<number, string>>({});
   const [imageLoading, setImageLoading] = useState<Record<number, boolean>>({});
 
+  // Validate input is an array
+  const isValid = slides && Array.isArray(slides) && slides.length > 0;
+
   useEffect(() => {
+    if (!isValid) return;
+
     let isActive = true;
 
     const loadCurrentSlideImage = async () => {
@@ -41,18 +46,24 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
       }
     };
 
-    if (slides && slides.length > 0) {
-        loadCurrentSlideImage();
-    }
+    loadCurrentSlideImage();
 
     return () => {
         isActive = false;
     };
-  }, [index, slides]); 
+  }, [index, slides, isValid]); 
 
-  if (!slides || slides.length === 0) return null;
+  if (!isValid) {
+    return (
+       <div className="text-center p-12 text-text-muted">
+         <i className="fas fa-chalkboard text-3xl mb-4 opacity-30"></i>
+         <p>No slides available.</p>
+       </div>
+    );
+  }
 
   const currentSlide = slides[index];
+  if (!currentSlide) return null;
 
   const handleDownloadOutline = () => {
     const content = slides.map((s, i) => 
@@ -70,7 +81,7 @@ const SlideView: React.FC<SlideViewProps> = ({ slides }) => {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-20 relative">
+    <div className="space-y-8 max-w-6xl mx-auto pb-20 relative animate-fadeIn">
       {/* PRINT VIEW: Handouts Style */}
       <div className="print-only">
         <div className="mb-8 border-b-2 border-black pb-4">

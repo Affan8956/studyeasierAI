@@ -13,6 +13,15 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
 
+  // Validate input is an array
+  if (!quiz || !Array.isArray(quiz) || quiz.length === 0) {
+    return (
+      <div className="text-center p-12 border-2 border-dashed border-border rounded-3xl">
+        <p className="text-text-muted italic">No quiz data available.</p>
+      </div>
+    );
+  }
+
   const handleOptionSelect = (idx: number) => {
     if (isAnswered) return;
     setSelectedOption(idx);
@@ -55,8 +64,6 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
     window.print();
   };
 
-  if (quiz.length === 0) return <div className="text-text-muted italic">No study intelligence found.</div>;
-
   // PRINT VIEW RENDERER
   const renderPrintView = () => (
     <div className="print-only">
@@ -86,6 +93,7 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
   );
 
   const q = quiz[currentIndex];
+  if (!q) return null;
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 animate-fadeIn">
@@ -100,12 +108,12 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
             </div>
             <h2 className="text-3xl font-black text-text-main mb-2">Mastery Complete!</h2>
             <p className="text-text-muted mb-8 text-lg">
-              Accuracy: <span className="text-emerald-400 font-black">{percentage(score, quiz.length)}%</span> ({score}/{quiz.length})
+              Accuracy: <span className="text-emerald-400 font-black">{Math.round((score / quiz.length) * 100)}%</span> ({score}/{quiz.length})
             </p>
             
             <div className="h-2 w-full bg-surface2 rounded-full mb-10 overflow-hidden border border-border">
               <div 
-                style={{ width: `${percentage(score, quiz.length)}%` }} 
+                style={{ width: `${Math.round((score / quiz.length) * 100)}%` }} 
                 className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000 ease-out"
               />
             </div>
@@ -236,7 +244,5 @@ const QuizView: React.FC<QuizViewProps> = ({ quiz }) => {
     </div>
   );
 };
-
-const percentage = (score: number, total: number) => Math.round((score / total) * 100);
 
 export default QuizView;

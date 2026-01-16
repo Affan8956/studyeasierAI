@@ -10,6 +10,16 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
+  // Validate input is an array
+  if (!flashcards || !Array.isArray(flashcards) || flashcards.length === 0) {
+    return (
+      <div className="text-center p-8 text-text-muted flex flex-col items-center justify-center h-64">
+        <i className="fas fa-layer-group text-4xl mb-4 opacity-20"></i>
+        <p>No flashcards available in this set.</p>
+      </div>
+    );
+  }
+
   const handleNext = () => {
     setIsFlipped(false);
     setTimeout(() => setCurrentIndex((prev) => (prev + 1) % flashcards.length), 200);
@@ -20,12 +30,12 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
     setTimeout(() => setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length), 200);
   };
 
-  if (!flashcards || flashcards.length === 0) return <div className="text-center p-8 text-text-muted">No flashcards available.</div>;
-
   const currentCard = flashcards[currentIndex];
 
+  if (!currentCard) return null;
+
   return (
-    <div className="flex flex-col items-center py-12 px-4 w-full">
+    <div className="flex flex-col items-center py-12 px-4 w-full animate-fadeIn">
       {/* 3D Card Container */}
       <div className="w-full max-w-xl h-96 perspective-1000 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
         <div
@@ -39,7 +49,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
                 <i className="fas fa-question text-xl"></i>
              </div>
              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.2em] mb-4">Question</h3>
-             <p className="text-2xl font-bold text-text-main leading-snug">{currentCard.front}</p>
+             <p className="text-2xl font-bold text-text-main leading-snug select-none">{currentCard.front}</p>
              
              <div className="absolute bottom-6 text-text-muted text-xs font-bold uppercase tracking-widest flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                 <i className="fas fa-sync-alt"></i> Tap to Reveal
@@ -52,7 +62,7 @@ const FlashcardView: React.FC<FlashcardViewProps> = ({ flashcards }) => {
                 <i className="fas fa-lightbulb text-xl"></i>
              </div>
              <h3 className="text-xs font-black text-indigo-200 uppercase tracking-[0.2em] mb-4">Answer</h3>
-             <p className="text-2xl font-medium text-white leading-relaxed">{currentCard.back}</p>
+             <p className="text-2xl font-medium text-white leading-relaxed select-none">{currentCard.back}</p>
 
              <div className="absolute bottom-6 text-indigo-200 text-xs font-bold uppercase tracking-widest flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                 <i className="fas fa-sync-alt"></i> Tap to Flip Back

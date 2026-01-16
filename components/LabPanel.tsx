@@ -27,15 +27,36 @@ interface LabPanelProps {
 
 const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAsset }) => {
   const { isLoading, currentPackage, error, activeTab } = state;
-  const [activeTool, setActiveTool] = useState<LabTool>('summary');
+  // Initialize with activeTab if available, otherwise default to summary
+  const [activeTool, setActiveTool] = useState<LabTool>(activeTab || 'summary');
   const [statusIndex, setStatusIndex] = useState(0);
 
-  // Sync activeTool with the requested activeTab from parent state (Vault open)
+  // Determine which tabs to show based on available content
+  const visibleTabs = (['summary', 'quiz', 'flashcards', 'slides'] as LabTool[]).filter(t => {
+     if (!currentPackage) return true; // During loading/initial state, show all
+     if (t === 'summary' && currentPackage.summary) return true;
+     if (t === 'quiz' && currentPackage.quiz) return true;
+     if (t === 'flashcards' && currentPackage.flashcards) return true;
+     if (t === 'slides' && currentPackage.slides) return true;
+     return false;
+  });
+
+  // Sync activeTool with the requested activeTab from parent state
   useEffect(() => {
     if (activeTab) {
       setActiveTool(activeTab);
     }
   }, [activeTab]);
+
+  // CRITICAL FIX: Auto-switch to the first available tab if the current activeTool is empty.
+  // This prevents the "Black Screen" when opening a Quiz from Vault (where summary is missing).
+  useEffect(() => {
+    if (currentPackage && !isLoading && visibleTabs.length > 0) {
+      if (!visibleTabs.includes(activeTool)) {
+        setActiveTool(visibleTabs[0]);
+      }
+    }
+  }, [currentPackage, visibleTabs, activeTool, isLoading]);
 
   useEffect(() => {
     let interval: any;
@@ -76,16 +97,6 @@ const LabPanel: React.FC<LabPanelProps> = ({ state, onProcess, onClear, onSaveAs
     link.download = `${currentPackage.title.replace(/\s+/g, '_')}_package.json`;
     link.click();
   };
-
-  // Determine which tabs to show based on available content
-  const visibleTabs = (['summary', 'quiz', 'flashcards', 'slides'] as LabTool[]).filter(t => {
-     if (!currentPackage) return true; // During loading/initial state, show all (or none logic handled below)
-     if (t === 'summary' && currentPackage.summary) return true;
-     if (t === 'quiz' && currentPackage.quiz) return true;
-     if (t === 'flashcards' && currentPackage.flashcards) return true;
-     if (t === 'slides' && currentPackage.slides) return true;
-     return false;
-  });
 
   return (
     <div className="flex-1 flex flex-col p-4 md:p-8 overflow-y-auto custom-scrollbar pb-24 md:pb-8">

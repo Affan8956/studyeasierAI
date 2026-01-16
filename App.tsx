@@ -289,7 +289,23 @@ const App: React.FC = () => {
   };
 
   const handleOpenAsset = (asset: LabAsset) => {
-    setViewingAsset(asset);
+    // Parse content if it's a string (Double safety for JSON content stored as string)
+    let safeContent = asset.content;
+    if (typeof safeContent === 'string') {
+        try {
+            const parsed = JSON.parse(safeContent);
+            // Only use parsed version if it's an array (for tools) or object
+            if (parsed && (Array.isArray(parsed) || typeof parsed === 'object')) {
+                safeContent = parsed;
+            }
+        } catch (e) {
+            // Content is likely just a string (summary)
+        }
+    }
+    
+    // Create safe asset copy with guaranteed parsed content
+    const safeAsset = { ...asset, content: safeContent };
+    setViewingAsset(safeAsset);
     
     if (asset.type === 'research') {
       setResearchState({
@@ -297,36 +313,31 @@ const App: React.FC = () => {
         error: null,
         query: asset.title,
         result: { 
-          text: asset.content, 
+          text: safeAsset.content, 
           groundingChunks: [] // Legacy or simplified assets might not have chunks
         }
       });
       setView('research');
     } else if (asset.type === 'image_analysis') {
-      // Determine if it was analysis (text content) or generation (image content)
-      // Since 'content' is `any` and for analysis it's string, for generation we should probably treat it differently.
-      // But for simplicity in this version, let's assume assets saved are text analyses OR we handle text as 'result'.
-      // If we save generated images, they are strings (base64). 
-      // Let's assume for now existing assets are text analysis.
-      const isBase64Image = typeof asset.content === 'string' && asset.content.startsWith('data:image');
+      const isBase64Image = typeof safeAsset.content === 'string' && safeAsset.content.startsWith('data:image');
       
       setVisionState({
         isLoading: false,
         mode: isBase64Image ? 'generate' : 'analyze',
         image: isBase64Image ? null : null, // Original upload not stored in asset
-        generatedImage: isBase64Image ? asset.content : null,
+        generatedImage: isBase64Image ? safeAsset.content : null,
         mimeType: '',
         prompt: asset.title,
-        result: isBase64Image ? null : asset.content,
+        result: isBase64Image ? null : safeAsset.content,
         error: null
       });
       setView('vision');
     } else {
       const mockPackage: any = { title: asset.title };
-      if (asset.type === 'summary') mockPackage.summary = { content: asset.content };
-      if (asset.type === 'quiz') mockPackage.quiz = asset.content;
-      if (asset.type === 'slides') mockPackage.slides = asset.content;
-      if (asset.type === 'flashcards') mockPackage.flashcards = asset.content;
+      if (asset.type === 'summary') mockPackage.summary = { content: safeAsset.content };
+      if (asset.type === 'quiz') mockPackage.quiz = safeAsset.content;
+      if (asset.type === 'slides') mockPackage.slides = safeAsset.content;
+      if (asset.type === 'flashcards') mockPackage.flashcards = safeAsset.content;
       
       setLabState({
         isLoading: false,

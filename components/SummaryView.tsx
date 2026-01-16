@@ -1,5 +1,6 @@
 
 import React, { useRef, useEffect } from 'react';
+import TTSPlayer from './TTSPlayer';
 
 interface SummaryViewProps {
   summary: string;
@@ -18,17 +19,44 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
     }
   }, [summary]);
 
-  const formatText = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i} className="font-bold text-emerald-400 print:text-black">{part.slice(2, -2)}</strong>;
+  // Robust Text Formatter to handle Markdown Symbols like **bold** and *italic* correctly
+  const formatInlineText = (text: string) => {
+    const elements: React.ReactNode[] = [];
+    let lastIndex = 0;
+    
+    // Regex for **bold** and *italic*
+    const regex = /(\*\*(.*?)\*\*)|(\*(.*?)\*)/g;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        elements.push(text.substring(lastIndex, match.index));
       }
-      if (part.startsWith('*') && part.endsWith('*')) {
-        return <em key={i} className="italic text-text-muted print:text-gray-600">{part.slice(1, -1)}</em>;
+      
+      if (match[1]) { // **bold** group
+        elements.push(
+          <strong key={match.index} className="font-bold text-emerald-400 print:text-black">
+            {match[2]}
+          </strong>
+        );
+      } else if (match[3]) { // *italic* group
+        elements.push(
+          <em key={match.index} className="italic text-text-muted print:text-gray-600">
+            {match[4]}
+          </em>
+        );
       }
-      return part;
-    });
+      
+      lastIndex = regex.lastIndex;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      elements.push(text.substring(lastIndex));
+    }
+    
+    return elements.length > 0 ? elements : text;
   };
 
   const handleDownloadMarkdown = () => {
@@ -42,7 +70,6 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
   };
 
   const handleGeneratePDF = () => {
-    // Uses the global @media print styles defined in index.html
     window.print();
   };
 
@@ -52,25 +79,52 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
       
       // Headers
       if (trimmed.startsWith('# ')) {
-        return <h1 key={i} className="text-3xl font-black mt-8 mb-6 text-text-main border-b border-border pb-4 tracking-tight uppercase print:text-black print:border-gray-300">{formatText(trimmed.replace('# ', ''))}</h1>;
+        return (
+          <h1 key={i} className="text-3xl font-black mt-10 mb-6 text-text-main border-b border-border pb-4 tracking-tight uppercase print:text-black print:border-gray-300">
+            {formatInlineText(trimmed.replace('# ', ''))}
+          </h1>
+        );
       }
       if (trimmed.startsWith('## ')) {
-        return <h2 key={i} className="text-2xl font-bold mt-8 mb-4 text-emerald-400 flex items-center gap-3 print:text-black">
-          <span className="w-2 h-6 bg-emerald-500 rounded-full inline-block shrink-0 print:bg-black"></span>
-          {formatText(trimmed.replace('## ', ''))}
-        </h2>;
+        return (
+          <h2 key={i} className="text-2xl font-bold mt-8 mb-4 text-emerald-400 flex items-center gap-3 print:text-black">
+            <span className="w-2 h-6 bg-emerald-500 rounded-full inline-block shrink-0 print:bg-black"></span>
+            {formatInlineText(trimmed.replace('## ', ''))}
+          </h2>
+        );
       }
       if (trimmed.startsWith('### ')) {
-        return <h3 key={i} className="text-xl font-bold mt-6 mb-3 text-emerald-400/90 print:text-black">{formatText(trimmed.replace('### ', ''))}</h3>;
+        return (
+          <h3 key={i} className="text-xl font-bold mt-6 mb-3 text-emerald-400/90 print:text-black">
+            {formatInlineText(trimmed.replace('### ', ''))}
+          </h3>
+        );
       }
 
-      // Lists
+      // Unordered Lists
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
         return (
-          <li key={i} className="ml-6 list-none mb-3 text-text-main relative pl-6 leading-relaxed print:text-black">
-            <span className="absolute left-0 text-emerald-500 font-black top-0 print:text-black">•</span>
-            {formatText(trimmed.substring(2))}
-          </li>
+          <div key={i} className="ml-2 mb-2 flex items-start gap-3">
+             <span className="text-emerald-500 font-black mt-1.5 text-[8px] print:text-black">●</span>
+             <p className="text-text-main leading-relaxed print:text-black flex-1">
+               {formatInlineText(trimmed.substring(2))}
+             </p>
+          </div>
+        );
+      }
+
+      // Numbered Lists
+      if (/^\d+\./.test(trimmed)) {
+        const parts = trimmed.split('.');
+        const num = parts[0];
+        const content = parts.slice(1).join('.').trim();
+        return (
+           <div key={i} className="ml-2 mb-2 flex items-start gap-3">
+              <span className="text-emerald-500 font-bold font-mono mt-0.5 print:text-black">{num}.</span>
+              <p className="text-text-main leading-relaxed print:text-black flex-1">
+                {formatInlineText(content)}
+              </p>
+           </div>
         );
       }
 
@@ -90,43 +144,61 @@ const SummaryView: React.FC<SummaryViewProps> = ({ summary, title }) => {
         );
       }
 
+      // Horizontal Rules
       if (trimmed === '---' || trimmed === '***') {
         return <hr key={i} className="my-10 border-border print:border-gray-300" />;
       }
 
+      // Spacer
       if (trimmed === '') return <div key={i} className="h-4" />;
       
-      return <p key={i} className="mb-4 leading-relaxed text-text-main text-lg print:text-black">{formatText(line)}</p>;
+      // Regular Paragraph
+      return (
+        <p key={i} className="mb-4 leading-relaxed text-text-main text-lg print:text-black">
+          {formatInlineText(line)}
+        </p>
+      );
     });
   };
 
   return (
     <div 
       ref={summaryRef}
-      className="bg-sidebar rounded-3xl shadow-2xl border border-border p-8 md:p-14 max-w-4xl mx-auto my-8 animate-fadeIn summary-print-container relative overflow-hidden print:bg-white print:border-none print:shadow-none"
+      className="bg-sidebar rounded-3xl shadow-2xl border border-border p-6 md:p-14 max-w-4xl mx-auto my-8 animate-fadeIn summary-print-container relative print:bg-white print:border-none print:shadow-none"
     >
-      <div className="flex items-center gap-4 mb-12 pb-8 border-b border-border relative z-10 no-print">
-        <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/20 shrink-0">
-          <i className="fas fa-graduation-cap text-xl"></i>
+      {/* Header with Title and Actions - HIGH Z-INDEX TO FIX VISIBILITY */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 mb-12 pb-8 border-b border-border relative z-50 no-print">
+        <div className="flex items-center gap-4 flex-1 w-full lg:w-auto">
+           <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/20 shrink-0">
+             <i className="fas fa-graduation-cap text-xl"></i>
+           </div>
+           <div className="min-w-0 flex-1">
+             <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest md:tracking-[0.4em] mb-1 block break-words whitespace-normal leading-tight">StudyEasierAI Module</span>
+             <h1 className="text-2xl font-black text-text-main tracking-tight uppercase break-words whitespace-normal leading-tight">{title}</h1>
+           </div>
         </div>
-        <div className="flex-1">
-          <span className="text-indigo-400 font-black text-[10px] uppercase tracking-[0.4em] mb-1 block">StudyEasierAI Module</span>
-          <h1 className="text-2xl font-black text-text-main tracking-tight uppercase">{title}</h1>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            onClick={handleDownloadMarkdown}
-            title="Download Markdown"
-            className="bg-surface text-text-muted w-12 h-12 rounded-xl hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center border border-border"
-          >
-            <i className="fas fa-file-code"></i>
-          </button>
-          <button 
-            onClick={handleGeneratePDF} 
-            className="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 shadow-xl shadow-indigo-600/20"
-          >
-            <i className="fas fa-file-pdf"></i> Export PDF
-          </button>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto lg:justify-end">
+          {/* TTS Player Integrated Here - Visible on all screens */}
+          <div className="w-full sm:w-auto relative z-50">
+            <TTSPlayer text={summary} />
+          </div>
+
+          <div className="flex gap-3 w-full sm:w-auto">
+            <button 
+              onClick={handleDownloadMarkdown}
+              title="Download Markdown"
+              className="bg-surface text-text-muted w-10 h-10 rounded-xl hover:bg-slate-700 hover:text-white transition-all flex items-center justify-center border border-border shrink-0"
+            >
+              <i className="fas fa-file-code"></i>
+            </button>
+            <button 
+              onClick={handleGeneratePDF} 
+              className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-xl shadow-indigo-600/20 w-full sm:w-auto justify-center"
+            >
+              <i className="fas fa-file-pdf"></i> Export
+            </button>
+          </div>
         </div>
       </div>
 

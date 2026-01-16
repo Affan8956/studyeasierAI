@@ -227,15 +227,31 @@ export const getAssets = async (userId: string): Promise<LabAsset[]> => {
     }
 
     if (data) {
-      const synced = data.map((asset: any) => ({
-        id: asset.id,
-        userId: asset.user_id,
-        title: asset.title,
-        type: asset.type,
-        content: asset.content, 
-        sourceName: asset.source_name,
-        timestamp: new Date(asset.created_at).getTime()
-      }));
+      const synced = data.map((asset: any) => {
+        // PARSE CONTENT IF IT'S A STRING (Fixes Supabase TEXT column issue)
+        let parsedContent = asset.content;
+        if (typeof parsedContent === 'string') {
+          try {
+            const parsed = JSON.parse(parsedContent);
+            // If the parsed content looks like a complex object or array, use it
+            if (parsed && (Array.isArray(parsed) || typeof parsed === 'object')) {
+              parsedContent = parsed;
+            }
+          } catch (e) {
+            // Keep as string if parsing fails (it might be just a summary text)
+          }
+        }
+
+        return {
+          id: asset.id,
+          userId: asset.user_id,
+          title: asset.title,
+          type: asset.type,
+          content: parsedContent, 
+          sourceName: asset.source_name,
+          timestamp: new Date(asset.created_at).getTime()
+        };
+      });
       return synced;
     }
   } catch (e: any) {
