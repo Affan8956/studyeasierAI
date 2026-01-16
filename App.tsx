@@ -78,6 +78,29 @@ const App: React.FC = () => {
     return "An unknown error occurred";
   };
 
+  // --- GLOBAL USAGE TRACKER (Whole App Usage) ---
+  useEffect(() => {
+    // Only track if authenticated
+    if (!auth.isAuthenticated) return;
+
+    const interval = setInterval(() => {
+       // Only count if window is focused (optional, but 'whole app usage' usually implies active usage)
+       if (document.visibilityState === 'visible') {
+         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+         const key = `app_usage_seconds_${today}`;
+         
+         // Get current count
+         const current = parseInt(localStorage.getItem(key) || '0');
+         localStorage.setItem(key, (current + 1).toString());
+
+         // Also update 'last_active_date' for streak calculation in Analytics
+         localStorage.setItem('last_active_date', today);
+       }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [auth.isAuthenticated]);
+
   useEffect(() => {
     // 0. IMMEDIATE HASH CHECK: Detect recovery mode before anything else
     // This catches the case where the user clicks the email link
