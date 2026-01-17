@@ -17,8 +17,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Scroll to bottom on new messages or streaming updates
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [chat?.messages, streamingContent, isStreaming]);
 
   useEffect(() => {
@@ -82,8 +85,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
       };
       
       onUpdateChat(finalizedChat);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      
+      // Handle Quota/Connection Errors Gracefully
+      const errorMessage = err.message?.includes('429') || err.message?.includes('quota')
+        ? "Daily AI quota limit reached. Please check your plan or try again later. Switching to Flash model may help."
+        : "Connection interrupted. Please try sending your message again.";
+
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        role: 'model',
+        content: `⚠️ ${errorMessage}`,
+        timestamp: Date.now()
+      };
+      
+      onUpdateChat({ ...updatedChat, messages: [...updatedChat.messages, errorMsg] });
     } finally {
       setIsStreaming(false);
       setStreamingContent('');
@@ -97,11 +114,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
     setIsEditingTitle(false);
   };
 
+  const getModeIcon = (mode: string) => {
+    switch(mode) {
+      case 'study': return 'fa-book-reader';
+      case 'coding': return 'fa-code';
+      case 'tutor': return 'fa-user-graduate';
+      case 'research': return 'fa-microscope';
+      default: return 'fa-feather';
+    }
+  };
+
   if (!chat) return <div className="flex-1 flex items-center justify-center text-text-muted">Select a chat to begin</div>;
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <header className="h-16 border-b border-border flex items-center justify-between px-4 md:px-8 bg-surface/80 backdrop-blur-md z-10 pl-16 md:pl-8">
+    <div className="flex-1 flex flex-col h-full relative">
+      {/* Header */}
+      <header className="h-16 border-b border-border flex items-center justify-between px-4 md:px-8 bg-surface/80 backdrop-blur-md z-10 pl-16 md:pl-8 flex-shrink-0">
         <div className="flex items-center gap-4 flex-1">
           <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center text-indigo-400 shrink-0">
             <i className={`fas ${getModeIcon(chat.mode)}`}></i>
@@ -129,21 +157,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 md:space-y-10 custom-scrollbar pb-32">
-        <div ref={chatContainerRef} className="space-y-8 md:space-y-10">
+      {/* Messages Scroll Area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar scroll-smooth">
+        <div ref={chatContainerRef} className="space-y-8 md:space-y-10 max-w-4xl mx-auto pb-4">
           {chat.messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-3 md:gap-6 max-w-4xl mx-auto animate-fadeIn ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} className={`flex gap-3 md:gap-6 animate-fadeIn ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                {msg.role === 'model' && <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 text-xs md:text-base"><i className="fas fa-brain"></i></div>}
                <div 
                 style={{ whiteSpace: 'pre-wrap' }}
-                className={`p-4 md:p-5 rounded-3xl text-sm leading-relaxed max-w-[85%] md:max-w-full shadow-md ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-surface border border-border text-text-main rounded-tl-none'}`}>
+                className={`p-4 md:p-5 rounded-3xl text-sm leading-relaxed max-w-[85%] md:max-w-full shadow-md ${
+                  msg.content.startsWith('⚠️') ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' :
+                  msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-surface border border-border text-text-main rounded-tl-none'
+                }`}>
                   {msg.content}
                </div>
                {msg.role === 'user' && <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-surface2 shrink-0 flex items-center justify-center text-text-muted font-bold text-xs md:text-base">U</div>}
             </div>
           ))}
+          
           {isStreaming && (
-            <div className="flex gap-3 md:gap-6 max-w-4xl mx-auto animate-pulse">
+            <div className="flex gap-3 md:gap-6 animate-pulse">
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-2xl bg-indigo-600 shrink-0 flex items-center justify-center text-white"><i className="fas fa-circle-notch animate-spin"></i></div>
               <div 
                 style={{ whiteSpace: 'pre-wrap' }}
@@ -155,13 +188,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
         </div>
       </div>
 
-      <div className="p-4 md:p-8 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-app via-app to-transparent pointer-events-none">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative group pointer-events-auto">
+      {/* Input Area (Fixed at bottom relative to flex container) */}
+      <div className="p-4 md:p-8 bg-app border-t border-border z-20 flex-shrink-0">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative group">
           <input 
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Reason with StudyEasierAI..."
+            placeholder={chat.mode === 'tutor' ? "Ask for a hint or guide..." : "Reason with StudyEasierAI..."}
             className="w-full bg-surface border border-border rounded-2xl pl-4 md:pl-6 pr-14 md:pr-16 py-3 md:py-4 text-sm text-text-main outline-none transition-all focus:border-indigo-500 shadow-2xl"
           />
           <button 
@@ -175,16 +209,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chat, onUpdateChat }) => 
       </div>
     </div>
   );
-};
-
-const getModeIcon = (mode: string) => {
-  switch(mode) {
-    case 'study': return 'fa-book-reader';
-    case 'coding': return 'fa-code';
-    case 'tutor': return 'fa-user-graduate';
-    case 'research': return 'fa-microscope';
-    default: return 'fa-feather';
-  }
 };
 
 export default ChatInterface;

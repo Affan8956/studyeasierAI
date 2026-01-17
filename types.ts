@@ -9,7 +9,7 @@ export interface User {
   };
 }
 
-export type AIMode = 'study' | 'coding' | 'tutor' | 'research';
+export type AIMode = 'study' | 'coding' | 'tutor' | 'research' | 'live';
 
 export interface Message {
   id: string;
@@ -28,7 +28,7 @@ export interface ChatSession {
   updatedAt: number;
 }
 
-export type ViewState = 'dashboard' | 'chat' | 'tutor' | 'lab' | 'research' | 'vision' | 'vault' | 'analytics' | 'focus_studio' | 'about';
+export type ViewState = 'dashboard' | 'chat' | 'tutor' | 'lab' | 'research' | 'vision' | 'vault' | 'analytics' | 'focus_studio' | 'about' | 'live';
 
 export type LabTool = 'summary' | 'quiz' | 'flashcards' | 'slides';
 

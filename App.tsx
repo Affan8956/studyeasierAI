@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState, AppTheme, CustomThemeColors } from './types';
+import { User, ChatSession, ViewState, LabAsset, AuthState, AIMode, LabState, ResearchState, VisionState, AppTheme, CustomThemeColors, Message } from './types';
 import { getCurrentSession, logout } from './services/authService';
 import { getHistory, saveChat, deleteChat, createNewChat, getAssets, saveAsset, deleteAsset, clearAllAssets } from './services/historyService';
 import { processUnifiedLabContent, performDeepResearch, analyzeImage, generateStudyImage } from './services/geminiService';
@@ -17,6 +17,7 @@ import AboutView from './components/AboutView';
 import ThemeSelector from './components/ThemeSelector';
 import AnalyticsView from './components/AnalyticsView';
 import FocusStudio from './components/FocusStudio';
+import LiveInterface from './components/LiveInterface';
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, token: null, isAuthenticated: false });
@@ -466,10 +467,18 @@ const App: React.FC = () => {
        setViewingAsset(null);
     }
     setView(targetView);
-    if(targetView !== 'chat' && targetView !== 'tutor') {
+    if(targetView !== 'chat' && targetView !== 'tutor' && targetView !== 'live') {
       setActiveChatId(null);
     }
     setIsMobileMenuOpen(false);
+  };
+
+  const handleSaveLiveSession = async (messages: Message[]) => {
+    if (!auth.user) return;
+    const chat = await createNewChat(auth.user.id, 'live');
+    const updatedChat = { ...chat, messages, title: `Live Session: ${new Date().toLocaleTimeString()}` };
+    await saveChat(auth.user.id, updatedChat);
+    setChats(prev => [updatedChat, ...prev]);
   };
 
   if (isAppLoading) {
@@ -540,12 +549,14 @@ const App: React.FC = () => {
 
       <main className="flex-1 relative flex flex-col overflow-hidden w-full">
         {/* THEME SELECTOR - Top Right Corner */}
-        <ThemeSelector 
-          currentTheme={theme} 
-          onThemeChange={handleThemeChange} 
-          customColors={customColors}
-          onCustomColorChange={handleCustomColorChange}
-        />
+        {view !== 'live' && (
+          <ThemeSelector 
+            currentTheme={theme} 
+            onThemeChange={handleThemeChange} 
+            customColors={customColors}
+            onCustomColorChange={handleCustomColorChange}
+          />
+        )}
 
         {view === 'dashboard' && (
           <Dashboard 
@@ -566,6 +577,13 @@ const App: React.FC = () => {
                await saveChat(auth.user!.id, updated);
                setChats(prev => prev.map(c => c.id === updated.id ? updated : c));
             }}
+          />
+        )}
+
+        {view === 'live' && (
+          <LiveInterface 
+            user={auth.user!}
+            onSaveSession={handleSaveLiveSession}
           />
         )}
 

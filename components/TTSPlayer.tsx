@@ -104,7 +104,7 @@ const TTSPlayer: React.FC<TTSPlayerProps> = ({ text }) => {
     };
 
     utterance.onerror = (e) => {
-      console.error("TTS Error", e);
+      console.error("TTS Error:", e.error);
       // Skip error chunk
       indexRef.current += 1;
       speakNextChunk();

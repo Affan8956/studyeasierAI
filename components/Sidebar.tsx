@@ -136,6 +136,13 @@ const Sidebar: React.FC<SidebarProps> = ({
              </button>
 
              <button 
+               onClick={() => setView('live')}
+               className={`w-full flex items-center gap-4 px-4 py-2.5 rounded-xl font-bold transition-all text-sm ${view === 'live' ? 'bg-rose-600 text-white shadow-lg' : 'text-text-muted hover:text-text-main hover:bg-surface'}`}
+             >
+               <i className="fas fa-microphone-alt w-5 text-center"></i> Live Study
+             </button>
+
+             <button 
                onClick={() => setView('vault')}
                className={`w-full flex items-center gap-4 px-4 py-2.5 rounded-xl font-bold transition-all text-sm ${view === 'vault' ? 'bg-amber-600 text-white shadow-lg' : 'text-text-muted hover:text-text-main hover:bg-surface'}`}
              >
@@ -204,7 +211,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                      className={`group relative p-2.5 rounded-xl cursor-pointer text-sm font-medium transition-all flex items-center justify-between ${activeChatId === chat.id ? 'bg-surface text-indigo-400 border border-indigo-500/20 shadow-inner' : 'text-text-muted hover:bg-surface hover:text-text-main'}`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <i className={`fas ${chat.mode === 'tutor' ? 'fa-user-graduate text-[10px]' : 'fa-comment-alt text-[10px]'} opacity-70`}></i>
+                        <i className={`fas ${chat.mode === 'tutor' ? 'fa-user-graduate text-[10px]' : chat.mode === 'live' ? 'fa-microphone text-[10px]' : 'fa-comment-alt text-[10px]'} opacity-70`}></i>
                         <div className="truncate text-xs font-bold">{chat.title}</div>
                       </div>
 
@@ -272,7 +279,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                  <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`} alt="user" />
               </div>
               <div className="min-w-0">
-                 <div className="text-xs font-bold text-text-main truncate">{user.name}</div>
+                 <div className="text-xs font-bold text-text-main truncate">{user.name}</p>
                  <button onClick={onLogout} className="text-[9px] text-rose-500 font-black uppercase hover:underline">Sign Out</button>
               </div>
            </div>
